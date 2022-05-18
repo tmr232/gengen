@@ -61,7 +61,7 @@ func printFunInfo(pkgs []*packages.Package) {
 	}
 }
 
-func getGeneratorDefinitions(dir string, tags []string) {
+func getGeneratorDefinitions(dir string, tags []string) []*ast.FuncDecl {
 	cfg := &packages.Config{
 		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax,
 		Context:    nil,
@@ -80,37 +80,35 @@ func getGeneratorDefinitions(dir string, tags []string) {
 		log.Fatal(err)
 	}
 
-	for _, pkg := range pkgs {
-		fmt.Println("Package name: ", pkg.ID)
-		for _, f := range pkg.Syntax {
-			fmt.Println("Syntax name: ", f.Name.Name)
+	var generatorFunctionDefs []*ast.FuncDecl
 
+	for _, pkg := range pkgs {
+		for _, f := range pkg.Syntax {
 			for _, decl := range f.Decls {
 				switch decl := decl.(type) {
 				case *ast.FuncDecl:
-					fmt.Println("Function: ", decl.Name)
 					results := decl.Type.Results
 					if results == nil {
 						continue
 					}
-					for _, result := range results.List {
-						fmt.Println("Result type: ", pkg.TypesInfo.Types[result.Type].Type.String())
+					if len(results.List) != 1 {
+						continue
 					}
+					if pkg.TypesInfo.Types[results.List[0].Type].Type.String() != "github.com/tmr232/gengen.Generator[int]" {
+						continue
+					}
+					generatorFunctionDefs = append(generatorFunctionDefs, decl)
 				}
 			}
 		}
-
-		//for id, obj := range pkg.TypesInfo.Defs {
-		//	fmt.Printf("%s: %q defines %v\n",
-		//		pkg.Fset.Position(id.Pos()), id.Name, obj)
-		//}
-		//for id, obj := range pkg.TypesInfo.Uses {
-		//	fmt.Printf("%s: %q uses %v\n",
-		//		pkg.Fset.Position(id.Pos()), id.Name, obj)
-		//}
 	}
+
+	return generatorFunctionDefs
 }
 
 func main() {
-	getGeneratorDefinitions(".", []string{"gengen"})
+	generatorDefs := getGeneratorDefinitions(".", []string{"gengen"})
+	for _, fdef := range generatorDefs {
+		fmt.Println(fdef.Name.Name)
+	}
 }
