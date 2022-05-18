@@ -81,7 +81,7 @@ func getGeneratorDefinitions(dir string, tags []string) []*ast.FuncDecl {
 	}
 
 	var generatorFunctionDefs []*ast.FuncDecl
-
+	// TODO: We'll need to separate functions into packages for generation.
 	for _, pkg := range pkgs {
 		for _, f := range pkg.Syntax {
 			for _, decl := range f.Decls {
