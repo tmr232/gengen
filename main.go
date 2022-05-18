@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"golang.org/x/tools/go/packages"
 	"log"
+	"strings"
 )
 
 func parsePackage() *packages.Package {
@@ -60,11 +61,56 @@ func printFunInfo(pkgs []*packages.Package) {
 	}
 }
 
+func getGeneratorDefinitions(dir string, tags []string) {
+	cfg := &packages.Config{
+		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax,
+		Context:    nil,
+		Logf:       nil,
+		Dir:        dir,
+		Env:        nil,
+		BuildFlags: []string{fmt.Sprintf("-tags=%s", strings.Join(tags, " "))},
+		Fset:       nil,
+		ParseFile:  nil,
+		Tests:      true,
+		Overlay:    nil,
+	}
+
+	pkgs, err := packages.Load(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, pkg := range pkgs {
+		fmt.Println("Package name: ", pkg.ID)
+		for _, f := range pkg.Syntax {
+			fmt.Println("Syntax name: ", f.Name.Name)
+
+			for _, decl := range f.Decls {
+				switch decl := decl.(type) {
+				case *ast.FuncDecl:
+					fmt.Println("Function: ", decl.Name)
+					results := decl.Type.Results
+					if results == nil {
+						continue
+					}
+					for _, result := range results.List {
+						fmt.Println("Result type: ", pkg.TypesInfo.Types[result.Type].Type.String())
+					}
+				}
+			}
+		}
+
+		//for id, obj := range pkg.TypesInfo.Defs {
+		//	fmt.Printf("%s: %q defines %v\n",
+		//		pkg.Fset.Position(id.Pos()), id.Name, obj)
+		//}
+		//for id, obj := range pkg.TypesInfo.Uses {
+		//	fmt.Printf("%s: %q uses %v\n",
+		//		pkg.Fset.Position(id.Pos()), id.Name, obj)
+		//}
+	}
+}
+
 func main() {
-	pkg := parsePackage()
-	fmt.Println(pkg.Types.Name())
-	fmt.Println(pkg.TypesInfo.Defs)
-	thing := pkg.Syntax[0].Decls[3].(*ast.FuncDecl).Body.List[1].(*ast.ReturnStmt).Results[0]
-	fmt.Println(pkg.TypesInfo.TypeOf(thing))
-	//cli.MakeCliApp(goat.App("Gengen", goat.Action(start))).Run(os.Args)
+	getGeneratorDefinitions(".", []string{"gengen"})
 }
