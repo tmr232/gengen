@@ -9,8 +9,6 @@ func fib() Generator[int] {
 		yield(a)
 		a, b = b, a+b
 	}
-
-	//return nil
 }
 
 func Range(stop int) Generator[int] {
