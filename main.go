@@ -105,7 +105,12 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 					if len(results.List) != 1 {
 						continue
 					}
-					if pkg.TypesInfo.Types[results.List[0].Type].Type.String() != "github.com/tmr232/gengen/gengen.Generator[int]" {
+
+					// TODO: Use proper type information here.
+					if !strings.HasPrefix(
+						pkg.TypesInfo.Types[results.List[0].Type].Type.String(),
+						"github.com/tmr232/gengen/gengen.Generator[",
+					) {
 						continue
 					}
 					decls = append(decls, decl)
@@ -281,6 +286,13 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 		log.Fatal(err)
 	}
 	fmt.Println(string(src))
+
+	var funcAst bytes.Buffer
+	if fdecl.Name.Name == "Empty" {
+		ast.Fprint(&funcAst, pkg.Fset, fdecl.Body, nil)
+		fmt.Println(funcAst.String())
+	}
+
 	return src
 }
 

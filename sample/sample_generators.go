@@ -30,6 +30,14 @@ func (s SomeGenError) Error() string {
 	return "Ooh! Error!"
 }
 
-func WithError() gengen.Generator[int] {
+func Empty() gengen.Generator[string] {
+	return nil
+}
+func EmptyWithError() gengen.Generator[int] {
 	return SomeGenError{}
+}
+
+func Yield() gengen.Generator[int] {
+	yield(1)
+	return nil
 }
