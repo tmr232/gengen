@@ -147,10 +147,15 @@ type Wizard struct {
 }
 
 func NewWizard() *Wizard {
-	t, err := template.New("core").Parse(coreTemplate)
+	funcMap := template.FuncMap{
+		"join":       strings.Join,
+		"trimPrefix": strings.TrimPrefix,
+	}
+	t, err := template.New("core").Funcs(funcMap).Parse(coreTemplate)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return &Wizard{template: t}
 }
 
@@ -235,14 +240,16 @@ func main() {
 	for _, genDef := range generatorDefs {
 		// To generate the new package - we must copy all imports!
 		imports := collectImports(genDef.pkg)
-
+		functions := convertFunctions(wiz, genDef)
 		src, err := wiz.Render("package",
 			struct {
 				PackageName string
 				Imports     Imports
+				Functions   []string
 			}{
 				PackageName: genDef.pkg.Name,
 				Imports:     imports,
+				Functions:   functions,
 			})
 		src = formatSource(src)
 		if err != nil {
@@ -254,5 +261,34 @@ func main() {
 		if err != nil {
 			log.Fatalf("writing output: %s", err)
 		}
+		fmt.Println(string(src))
 	}
+}
+func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []byte {
+
+	var out bytes.Buffer
+	format.Node(&out, pkg.Fset, fdecl.Type)
+	signature := out.String()
+
+	src, err := wiz.Render("function", struct {
+		Name      string
+		Signature string
+	}{
+		Name:      fdecl.Name.Name,
+		Signature: signature,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(src))
+	return src
+}
+
+func convertFunctions(wiz *Wizard, generatorDecl generatorDecls) []string {
+	var functions []string
+	for _, fdecl := range generatorDecl.decls {
+		f := convertFunction(wiz, generatorDecl.pkg, fdecl)
+		functions = append(functions, string(f))
+	}
+	return functions
 }

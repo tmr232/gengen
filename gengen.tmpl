@@ -7,6 +7,12 @@
 
     {{.Imports}}
 
+    {{join .Functions "\n"}}
+
 {{end}}
 
 
+{{define "function"}}
+    func {{.Name}}{{trimPrefix .Signature "func"}} {
+    }
+{{end}}
