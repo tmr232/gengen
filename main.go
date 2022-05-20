@@ -5,8 +5,11 @@ import (
 	_ "embed"
 	"fmt"
 	"go/ast"
+	"go/format"
 	"golang.org/x/tools/go/packages"
+	"io/ioutil"
 	"log"
+	"path"
 	"strings"
 	"text/template"
 )
@@ -71,7 +74,7 @@ type generatorDecls struct {
 
 func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	cfg := &packages.Config{
-		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax,
+		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax | packages.NeedName,
 		Context:    nil,
 		Logf:       nil,
 		Dir:        dir,
@@ -137,7 +140,40 @@ func funWithTemplates() {
 	if err != nil {
 		fmt.Println(out.String())
 	}
+}
 
+type Wizard struct {
+	template *template.Template
+}
+
+func NewWizard() *Wizard {
+	t, err := template.New("core").Parse(coreTemplate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &Wizard{template: t}
+}
+
+func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
+	var out bytes.Buffer
+	err := wiz.template.ExecuteTemplate(&out, name, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return out.Bytes(), nil
+}
+
+func formatSource(src []byte) []byte {
+	formattedSrc, err := format.Source(src)
+	if err != nil {
+		// Should never happen, but can arise when developing this code.
+		// The user can compile the output to see the error.
+		log.Printf("warning: internal error: invalid Go generated: %s", err)
+		log.Printf("warning: compile the package to analyze the error")
+		return src
+	}
+	return formattedSrc
 }
 
 func main() {
@@ -152,5 +188,22 @@ func main() {
 		}
 	}
 
-	funWithTemplates()
+	wiz := NewWizard()
+	if wiz == nil {
+		log.Fatal("Failed to initialize wizard.")
+	}
+
+	for _, genDef := range generatorDefs {
+		// For starters - let's just create a file!
+		src, err := wiz.Render("package", struct{ PackageName string }{genDef.pkg.Name})
+		src = formatSource(src)
+		if err != nil {
+			log.Fatal(err)
+		}
+		filepath := path.Join(dir, genDef.pkg.Name+"_gengen.go")
+		err = ioutil.WriteFile(filepath, src, 0644)
+		if err != nil {
+			log.Fatalf("writing output: %s", err)
+		}
+	}
 }
