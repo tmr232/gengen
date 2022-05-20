@@ -176,6 +176,45 @@ func formatSource(src []byte) []byte {
 	return formattedSrc
 }
 
+type ImportLine struct {
+	Name *string
+	Path string
+}
+
+func (imp ImportLine) String() string {
+	if imp.Name != nil {
+		return fmt.Sprintf("%s %s", *imp.Name, imp.Path)
+	} else {
+		return imp.Path
+	}
+}
+
+type Imports []ImportLine
+
+func (imports Imports) String() string {
+	var out bytes.Buffer
+	out.WriteString("import (\n")
+	for _, imp := range imports {
+		fmt.Fprintf(&out, "\t%s\n", imp)
+	}
+	out.WriteString(")\n")
+	return out.String()
+}
+
+func findImports(pkg *packages.Package) Imports {
+	var imports Imports
+	for _, f := range pkg.Syntax {
+		for _, imp := range f.Imports {
+			if imp.Name != nil {
+				imports = append(imports, ImportLine{Name: &imp.Name.Name, Path: imp.Path.Value})
+			} else {
+				imports = append(imports, ImportLine{Path: imp.Path.Value})
+			}
+		}
+	}
+	return imports
+}
+
 func main() {
 	dir := "./sample"
 	buildTag := "gengen"
@@ -194,12 +233,15 @@ func main() {
 	}
 
 	for _, genDef := range generatorDefs {
-		// For starters - let's just create a file!
+		// To generate the new package - we must copy all imports!
+		fmt.Println(findImports(genDef.pkg))
+
 		src, err := wiz.Render("package", struct{ PackageName string }{genDef.pkg.Name})
 		src = formatSource(src)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		filepath := path.Join(dir, genDef.pkg.Name+"_gengen.go")
 		err = ioutil.WriteFile(filepath, src, 0644)
 		if err != nil {

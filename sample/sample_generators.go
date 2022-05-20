@@ -2,7 +2,10 @@
 
 package sample
 
-import "github.com/tmr232/gengen/gengen"
+import (
+	xyz "fmt"
+	"github.com/tmr232/gengen/gengen"
+)
 
 func fib() gengen.Generator[int] {
 	a := 1
@@ -23,6 +26,7 @@ func Range(stop int) gengen.Generator[int] {
 type SomeGenError struct{}
 
 func (s SomeGenError) Error() string {
+	xyz.Println("abc")
 	return "Ooh! Error!"
 }
 
