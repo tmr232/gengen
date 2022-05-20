@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"github.com/tmr232/gengen/gengen"
 	"go/ast"
 	"go/format"
 	"golang.org/x/tools/go/packages"
@@ -268,6 +269,14 @@ func main() {
 		}
 		fmt.Println(string(src))
 	}
+
+	sample := sampleGenerator()
+	for sample.Next() {
+		fmt.Println(sample.Value())
+	}
+	if sample.Error() != nil {
+		fmt.Println("Oh no! Error!")
+	}
 }
 func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []byte {
 
@@ -303,4 +312,15 @@ func convertFunctions(wiz *Wizard, generatorDecl generatorDecls) []string {
 		functions = append(functions, string(f))
 	}
 	return functions
+}
+
+func sampleGenerator() gengen.Generator[int] {
+	done := false
+	return &gengen.GeneratorFunction[int]{Advance: func() (hasValue bool, value int, err error) {
+		if done {
+			return
+		}
+		done = true
+		return true, 42, nil
+	}}
 }
