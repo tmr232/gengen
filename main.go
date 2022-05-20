@@ -201,7 +201,7 @@ func (imports Imports) String() string {
 	return out.String()
 }
 
-func findImports(pkg *packages.Package) Imports {
+func collectImports(pkg *packages.Package) Imports {
 	var imports Imports
 	for _, f := range pkg.Syntax {
 		for _, imp := range f.Imports {
@@ -234,9 +234,16 @@ func main() {
 
 	for _, genDef := range generatorDefs {
 		// To generate the new package - we must copy all imports!
-		fmt.Println(findImports(genDef.pkg))
+		imports := collectImports(genDef.pkg)
 
-		src, err := wiz.Render("package", struct{ PackageName string }{genDef.pkg.Name})
+		src, err := wiz.Render("package",
+			struct {
+				PackageName string
+				Imports     Imports
+			}{
+				PackageName: genDef.pkg.Name,
+				Imports:     imports,
+			})
 		src = formatSource(src)
 		if err != nil {
 			log.Fatal(err)
