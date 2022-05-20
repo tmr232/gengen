@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 	"go/ast"
 	"golang.org/x/tools/go/packages"
 	"log"
 	"strings"
+	"text/template"
 )
 
 func parsePackage() *packages.Package {
@@ -117,6 +120,26 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	return generatorFunctionDefs
 }
 
+//go:embed gengen.tmpl
+var coreTemplate string
+
+func funWithTemplates() {
+	t, err := template.New("package").Parse(coreTemplate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var out bytes.Buffer
+	err = t.ExecuteTemplate(&out, "package", map[string]string{"packageName": "test"})
+	if err != nil {
+		fmt.Println(out.String())
+	}
+	err = t.ExecuteTemplate(&out, "sub", nil)
+	if err != nil {
+		fmt.Println(out.String())
+	}
+
+}
+
 func main() {
 	generatorDefs := getGeneratorDefinitions(".", []string{"gengen"})
 	for _, genDecls := range generatorDefs {
@@ -125,4 +148,6 @@ func main() {
 			fmt.Println("    ", fdef.Name.Name)
 		}
 	}
+
+	funWithTemplates()
 }
