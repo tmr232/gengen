@@ -1,6 +1,6 @@
 //go:build !gengen
 
-package main
+package gengen
 
 func yield(value any) {}
 

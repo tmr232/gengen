@@ -102,7 +102,7 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 					if len(results.List) != 1 {
 						continue
 					}
-					if pkg.TypesInfo.Types[results.List[0].Type].Type.String() != "github.com/tmr232/gengen.Generator[int]" {
+					if pkg.TypesInfo.Types[results.List[0].Type].Type.String() != "github.com/tmr232/gengen/gengen.Generator[int]" {
 						continue
 					}
 					decls = append(decls, decl)
@@ -141,7 +141,10 @@ func funWithTemplates() {
 }
 
 func main() {
-	generatorDefs := getGeneratorDefinitions(".", []string{"gengen"})
+	dir := "./sample"
+	buildTag := "gengen"
+
+	generatorDefs := getGeneratorDefinitions(dir, []string{buildTag})
 	for _, genDecls := range generatorDefs {
 		fmt.Println(genDecls.pkg.ID, genDecls.pkg.Name)
 		for _, fdef := range genDecls.decls {

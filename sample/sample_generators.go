@@ -1,19 +1,21 @@
 //go:build gengen
 
-package main
+package sample
 
-func fib() Generator[int] {
+import "github.com/tmr232/gengen/gengen"
+
+func fib() gengen.Generator[int] {
 	a := 1
 	b := 1
 	for {
-		yield(a)
+		gengen.yield(a)
 		a, b = b, a+b
 	}
 }
 
-func Range(stop int) Generator[int] {
+func Range(stop int) gengen.Generator[int] {
 	for i := 0; i < stop; i++ {
-		yield(i)
+		gengen.yield(i)
 	}
 	return nil
 }
@@ -24,6 +26,6 @@ func (s SomeGenError) Error() string {
 	return "Ooh! Error!"
 }
 
-func WithError() Generator[int] {
+func WithError() gengen.Generator[int] {
 	return SomeGenError{}
 }
