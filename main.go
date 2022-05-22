@@ -7,6 +7,7 @@ import (
 	"github.com/tmr232/gengen/gengen"
 	"go/ast"
 	"go/format"
+	"go/token"
 	"golang.org/x/tools/go/packages"
 	"io/ioutil"
 	"log"
@@ -284,12 +285,32 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 	format.Node(&out, pkg.Fset, fdecl.Type)
 	signature := out.String()
 
+	// We only allow a single result
+	if len(fdecl.Type.Results.List) != 1 {
+		log.Fatalf("Expected a single result, got %d", len(fdecl.Type.Results.List))
+	}
+
+	var returnType bytes.Buffer
+	format.Node(&out, pkg.Fset, fdecl.Type.Results.List[0])
+
+	var body strings.Builder
+	for _, node := range fdecl.Body.List {
+		body.WriteString(convertAst(wiz, pkg.Fset, node))
+		body.WriteString("\n")
+	}
+
 	src, err := wiz.Render("function", struct {
-		Name      string
-		Signature string
+		Name       string
+		Signature  string
+		ReturnType string
+		Body       string
+		State      string
 	}{
-		Name:      fdecl.Name.Name,
-		Signature: signature,
+		Name:       fdecl.Name.Name,
+		Signature:  signature,
+		ReturnType: returnType.String(),
+		Body:       body.String(),
+		State:      "",
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -302,7 +323,32 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 		fmt.Println(funcAst.String())
 	}
 
+	for _, node := range fdecl.Body.List {
+		convertAst(wiz, pkg.Fset, node)
+	}
+
 	return src
+}
+
+func convertAst(wiz *Wizard, fset *token.FileSet, node ast.Node) string {
+	switch node := node.(type) {
+	case *ast.ReturnStmt:
+		if len(node.Results) != 1 {
+			log.Fatalf("Expected 1 result, got %d", len(node.Results))
+		}
+		var retval bytes.Buffer
+		err := format.Node(&retval, fset, node.Results[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		returnStatement, err := wiz.Render("return", struct{ ReturnValue string }{ReturnValue: retval.String()})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(returnStatement)
+	}
+	return "// Unsupported!"
 }
 
 func convertFunctions(wiz *Wizard, generatorDecl generatorDecls) []string {

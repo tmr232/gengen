@@ -14,5 +14,16 @@
 
 {{define "function"}}
     func {{.Name}}{{trimPrefix .Signature "func"}} {
+        return &gengen.GeneratorFunction[{{.ReturnType}}]{
+            {{.State}}
+            Advance: func() (__hasValue bool, __value int, __err error) {
+                {{.Body}}
+            }
+        }
     }
+{{end}}
+
+{{define "return"}}
+    __err = {{.ReturnValue}}
+    return
 {{end}}
