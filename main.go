@@ -290,8 +290,8 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 		log.Fatalf("Expected a single result, got %d", len(fdecl.Type.Results.List))
 	}
 
-	var returnType bytes.Buffer
-	format.Node(&out, pkg.Fset, fdecl.Type.Results.List[0])
+	_, returnType, _ := strings.Cut(pkg.TypesInfo.TypeOf(fdecl.Type.Results.List[0].Type).String(), "[")
+	returnType = strings.TrimSuffix(returnType, "]")
 
 	var body strings.Builder
 	for _, node := range fdecl.Body.List {
@@ -308,7 +308,7 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 	}{
 		Name:       fdecl.Name.Name,
 		Signature:  signature,
-		ReturnType: returnType.String(),
+		ReturnType: returnType,
 		Body:       body.String(),
 		State:      "",
 	})
