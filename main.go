@@ -15,7 +15,9 @@ import (
 )
 
 type generatorDecls struct {
-	pkg   *packages.Package
+	// pkg is the package we're generating generators for
+	pkg *packages.Package
+	// decls are the declarations of all functions that return a generator.
 	decls []*ast.FuncDecl
 }
 
