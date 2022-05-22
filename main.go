@@ -7,7 +7,6 @@ import (
 	"github.com/tmr232/gengen/gengen"
 	"go/ast"
 	"go/format"
-	"go/token"
 	"golang.org/x/tools/go/packages"
 	"io/ioutil"
 	"log"
@@ -166,6 +165,18 @@ func NewWizard() *Wizard {
 	return &Wizard{template: t}
 }
 
+func (wiz *Wizard) WithPackage(pkg *packages.Package) *PkgWizard {
+	return &PkgWizard{
+		Wizard: *wiz,
+		pkg:    pkg,
+	}
+}
+
+type PkgWizard struct {
+	Wizard
+	pkg *packages.Package
+}
+
 func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
 	var out bytes.Buffer
 	err := wiz.template.ExecuteTemplate(&out, name, data)
@@ -247,7 +258,7 @@ func main() {
 	for _, genDef := range generatorDefs {
 		// To generate the new package - we must copy all imports!
 		imports := collectImports(genDef.pkg)
-		functions := convertFunctions(wiz, genDef)
+		functions := wiz.WithPackage(genDef.pkg).convertFunctions(genDef)
 		src, err := wiz.Render("package",
 			struct {
 				PackageName string
@@ -279,10 +290,10 @@ func main() {
 		fmt.Println("Oh no! Error!")
 	}
 }
-func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []byte {
+func (wiz *PkgWizard) convertFunction(fdecl *ast.FuncDecl) []byte {
 
 	var out bytes.Buffer
-	format.Node(&out, pkg.Fset, fdecl.Type)
+	format.Node(&out, wiz.pkg.Fset, fdecl.Type)
 	signature := out.String()
 
 	// We only allow a single result
@@ -290,12 +301,12 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 		log.Fatalf("Expected a single result, got %d", len(fdecl.Type.Results.List))
 	}
 
-	_, returnType, _ := strings.Cut(pkg.TypesInfo.TypeOf(fdecl.Type.Results.List[0].Type).String(), "[")
+	_, returnType, _ := strings.Cut(wiz.pkg.TypesInfo.TypeOf(fdecl.Type.Results.List[0].Type).String(), "[")
 	returnType = strings.TrimSuffix(returnType, "]")
 
 	var body strings.Builder
 	for _, node := range fdecl.Body.List {
-		body.WriteString(convertAst(wiz, pkg, pkg.Fset, node))
+		body.WriteString(wiz.convertAst(node))
 		body.WriteString("\n")
 	}
 
@@ -319,21 +330,21 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 
 	var funcAst bytes.Buffer
 	if fdecl.Name.Name == "Yield" {
-		ast.Fprint(&funcAst, pkg.Fset, fdecl.Body, nil)
+		ast.Fprint(&funcAst, wiz.pkg.Fset, fdecl.Body, nil)
 		fmt.Println(funcAst.String())
 	}
 
 	return src
 }
 
-func convertAst(wiz *Wizard, pkg *packages.Package, fset *token.FileSet, node ast.Node) string {
+func (wiz *PkgWizard) convertAst(node ast.Node) string {
 	switch node := node.(type) {
 	case *ast.ReturnStmt:
 		if len(node.Results) != 1 {
 			log.Fatalf("Expected 1 result, got %d", len(node.Results))
 		}
 		var retval bytes.Buffer
-		err := format.Node(&retval, fset, node.Results[0])
+		err := format.Node(&retval, wiz.pkg.Fset, node.Results[0])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -344,14 +355,14 @@ func convertAst(wiz *Wizard, pkg *packages.Package, fset *token.FileSet, node as
 		}
 		return string(returnStatement)
 	case *ast.CallExpr:
-		object := pkg.TypesInfo.Uses[node.Fun.(*ast.SelectorExpr).Sel]
+		object := wiz.pkg.TypesInfo.Uses[node.Fun.(*ast.SelectorExpr).Sel]
 		if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
 			// Yield only accepts one argument
 			if len(node.Args) != 1 {
 				log.Fatal("Yield accepts a single argument.")
 			}
 			var yieldValue bytes.Buffer
-			format.Node(&yieldValue, fset, node.Args[0])
+			format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
 
 			yield, err := wiz.Render("yield", struct{ YieldValue string }{YieldValue: yieldValue.String()})
 			if err != nil {
@@ -361,12 +372,12 @@ func convertAst(wiz *Wizard, pkg *packages.Package, fset *token.FileSet, node as
 		}
 		return "//NO!"
 	case *ast.ExprStmt:
-		return convertAst(wiz, pkg, fset, node.X)
+		return wiz.convertAst(node.X)
 	}
 	return "// Unsupported!"
 }
 
-func convertFunctions(wiz *Wizard, generatorDecl generatorDecls) []string {
+func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
 	var functions []string
 	pkg := generatorDecl.pkg
 	fset := pkg.Fset
@@ -379,7 +390,7 @@ func convertFunctions(wiz *Wizard, generatorDecl generatorDecls) []string {
 			fset.Position(id.Pos()), id.Name, obj)
 	}
 	for _, fdecl := range generatorDecl.decls {
-		f := convertFunction(wiz, generatorDecl.pkg, fdecl)
+		f := wiz.convertFunction(fdecl)
 		functions = append(functions, string(f))
 	}
 	return functions

@@ -15,8 +15,14 @@
 {{define "function"}}
     func {{.Name}}{{trimPrefix .Signature "func"}} {
         {{.State}}
+        __next := 0
         return &gengen.GeneratorFunction[{{.ReturnType}}]{
             Advance: func() (__hasValue bool, __value {{.ReturnType}}, __err error) {
+        // This should all be generated using a state-manager class.
+                switch __next {
+                case 0:
+                    goto __next_0
+                }
                 {{.Body}}
             },
         }
