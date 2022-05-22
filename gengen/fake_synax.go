@@ -2,6 +2,6 @@
 
 package gengen
 
-func yield(value any) {}
+func Yield(value any) {}
 
 type Generator[T any] error

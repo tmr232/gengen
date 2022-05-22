@@ -35,8 +35,8 @@ func parsePackage() *packages.Package {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(pkgs)
-	printFunInfo(pkgs)
+	//fmt.Println(pkgs)
+	//printFunInfo(pkgs)
 
 	if len(pkgs) != 1 {
 		log.Fatalf("error: %d packages found", len(pkgs))
@@ -268,7 +268,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("writing output: %s", err)
 		}
-		fmt.Println(string(src))
+		//fmt.Println(string(src))
 	}
 
 	sample := sampleGenerator()
@@ -295,7 +295,7 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 
 	var body strings.Builder
 	for _, node := range fdecl.Body.List {
-		body.WriteString(convertAst(wiz, pkg.Fset, node))
+		body.WriteString(convertAst(wiz, pkg, pkg.Fset, node))
 		body.WriteString("\n")
 	}
 
@@ -315,22 +315,18 @@ func convertFunction(wiz *Wizard, pkg *packages.Package, fdecl *ast.FuncDecl) []
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(string(src))
+	//fmt.Println(string(src))
 
 	var funcAst bytes.Buffer
-	if fdecl.Name.Name == "Empty" {
+	if fdecl.Name.Name == "Yield" {
 		ast.Fprint(&funcAst, pkg.Fset, fdecl.Body, nil)
 		fmt.Println(funcAst.String())
-	}
-
-	for _, node := range fdecl.Body.List {
-		convertAst(wiz, pkg.Fset, node)
 	}
 
 	return src
 }
 
-func convertAst(wiz *Wizard, fset *token.FileSet, node ast.Node) string {
+func convertAst(wiz *Wizard, pkg *packages.Package, fset *token.FileSet, node ast.Node) string {
 	switch node := node.(type) {
 	case *ast.ReturnStmt:
 		if len(node.Results) != 1 {
@@ -347,12 +343,41 @@ func convertAst(wiz *Wizard, fset *token.FileSet, node ast.Node) string {
 			log.Fatal(err)
 		}
 		return string(returnStatement)
+	case *ast.CallExpr:
+		object := pkg.TypesInfo.Uses[node.Fun.(*ast.SelectorExpr).Sel]
+		if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
+			// Yield only accepts one argument
+			if len(node.Args) != 1 {
+				log.Fatal("Yield accepts a single argument.")
+			}
+			var yieldValue bytes.Buffer
+			format.Node(&yieldValue, fset, node.Args[0])
+
+			yield, err := wiz.Render("yield", struct{ YieldValue string }{YieldValue: yieldValue.String()})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(yield)
+		}
+		return "//NO!"
+	case *ast.ExprStmt:
+		return convertAst(wiz, pkg, fset, node.X)
 	}
 	return "// Unsupported!"
 }
 
 func convertFunctions(wiz *Wizard, generatorDecl generatorDecls) []string {
 	var functions []string
+	pkg := generatorDecl.pkg
+	fset := pkg.Fset
+	for id, obj := range pkg.TypesInfo.Defs {
+		fmt.Printf("%s: %q defines %v\n",
+			fset.Position(id.Pos()), id.Name, obj)
+	}
+	for id, obj := range pkg.TypesInfo.Uses {
+		fmt.Printf("%s: %q uses %v\n",
+			fset.Position(id.Pos()), id.Name, obj)
+	}
 	for _, fdecl := range generatorDecl.decls {
 		f := convertFunction(wiz, generatorDecl.pkg, fdecl)
 		functions = append(functions, string(f))

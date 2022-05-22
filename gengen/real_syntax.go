@@ -2,7 +2,7 @@
 
 package gengen
 
-func yield(value any) {}
+func Yield(value any) {}
 
 type Generator[T any] interface {
 	Next() bool

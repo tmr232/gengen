@@ -27,3 +27,10 @@
     __err = {{.ReturnValue}}
     return
 {{end}}
+
+{{define "yield"}}
+{{/*TODO: Add state and state labels!*/}}
+    __hasValue = true
+    __value = {{.YieldValue}}
+    return
+{{end}}
