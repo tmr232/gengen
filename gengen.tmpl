@@ -20,9 +20,13 @@
             Advance: func() (__hasValue bool, __value {{.ReturnType}}, __err error) {
         // This should all be generated using a state-manager class.
                 switch __next {
-                case 0:
-                    goto __next_0
+                {{range .StateIndices}}
+                case {{.}}:
+                    goto {{template "next" .}}
+                {{end}}
                 }
+                {{template "next" 0}}:
+
                 {{.Body}}
             },
         }
@@ -38,5 +42,12 @@
 {{/*TODO: Add state and state labels!*/}}
     __hasValue = true
     __value = {{.YieldValue}}
+    __next = {{.Next}}
     return
+
+{{template "next" .Next}}:
 {{end}}
+
+{{define "next"}}
+__Next{{.}}
+{{- end}}

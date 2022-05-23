@@ -38,12 +38,6 @@ func (wiz *Wizard) WithPackage(pkg *packages.Package) *PkgWizard {
 		pkg:    pkg,
 	}
 }
-
-type PkgWizard struct {
-	Wizard
-	pkg *packages.Package
-}
-
 func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
 	var out bytes.Buffer
 	err := wiz.template.ExecuteTemplate(&out, name, data)
@@ -54,6 +48,17 @@ func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+type PkgWizard struct {
+	Wizard
+	pkg *packages.Package
+}
+
+func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
+	return &FuncWizard{
+		PkgWizard: *wiz,
+		fdecl:     fdecl,
+	}
+}
 func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
 	var functions []string
 	pkg := generatorDecl.pkg
@@ -67,44 +72,65 @@ func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
 			fset.Position(id.Pos()), id.Name, obj)
 	}
 	for _, fdecl := range generatorDecl.decls {
-		f := wiz.convertFunction(fdecl)
+		f := wiz.WithFunction(fdecl).convertFunction()
 		functions = append(functions, string(f))
 	}
 	return functions
 }
 
-func (wiz *PkgWizard) convertFunction(fdecl *ast.FuncDecl) []byte {
+type FuncWizard struct {
+	PkgWizard
+	fdecl    *ast.FuncDecl
+	maxState int
+}
+
+func (wiz *FuncWizard) StateIndices() []int {
+	indices := make([]int, wiz.maxState+1)
+	for i := range indices {
+		indices[i] = i
+	}
+	return indices
+}
+
+func (wiz *FuncWizard) NextIndex() int {
+	wiz.maxState += 1
+	return wiz.maxState
+}
+
+func (wiz *FuncWizard) convertFunction() []byte {
 
 	var out bytes.Buffer
-	format.Node(&out, wiz.pkg.Fset, fdecl.Type)
+	format.Node(&out, wiz.pkg.Fset, wiz.fdecl.Type)
 	signature := out.String()
 
 	// We only allow a single result
-	if len(fdecl.Type.Results.List) != 1 {
-		log.Fatalf("Expected a single result, got %d", len(fdecl.Type.Results.List))
+	if len(wiz.fdecl.Type.Results.List) != 1 {
+		log.Fatalf("Expected a single result, got %d", len(wiz.fdecl.Type.Results.List))
 	}
 
-	_, returnType, _ := strings.Cut(wiz.pkg.TypesInfo.TypeOf(fdecl.Type.Results.List[0].Type).String(), "[")
+	_, returnType, _ := strings.Cut(wiz.pkg.TypesInfo.TypeOf(wiz.fdecl.Type.Results.List[0].Type).String(), "[")
 	returnType = strings.TrimSuffix(returnType, "]")
 
 	var body strings.Builder
-	for _, node := range fdecl.Body.List {
+	for _, node := range wiz.fdecl.Body.List {
 		body.WriteString(wiz.convertAst(node))
 		body.WriteString("\n")
 	}
 
 	src, err := wiz.Render("function", struct {
-		Name       string
-		Signature  string
-		ReturnType string
-		Body       string
-		State      string
+		Name         string
+		Signature    string
+		ReturnType   string
+		Body         string
+		State        string
+		StateIndices []int
 	}{
-		Name:       fdecl.Name.Name,
-		Signature:  signature,
-		ReturnType: returnType,
-		Body:       body.String(),
-		State:      "",
+		Name:         wiz.fdecl.Name.Name,
+		Signature:    signature,
+		ReturnType:   returnType,
+		Body:         body.String(),
+		State:        "",
+		StateIndices: wiz.StateIndices(),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -112,15 +138,15 @@ func (wiz *PkgWizard) convertFunction(fdecl *ast.FuncDecl) []byte {
 	//fmt.Println(string(src))
 
 	var funcAst bytes.Buffer
-	if fdecl.Name.Name == "Yield" {
-		ast.Fprint(&funcAst, wiz.pkg.Fset, fdecl.Body, nil)
+	if wiz.fdecl.Name.Name == "Yield" {
+		ast.Fprint(&funcAst, wiz.pkg.Fset, wiz.fdecl.Body, nil)
 		fmt.Println(funcAst.String())
 	}
 
 	return src
 }
 
-func (wiz *PkgWizard) convertAst(node ast.Node) string {
+func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	switch node := node.(type) {
 	case *ast.ReturnStmt:
 		if len(node.Results) != 1 {
@@ -147,7 +173,13 @@ func (wiz *PkgWizard) convertAst(node ast.Node) string {
 			var yieldValue bytes.Buffer
 			format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
 
-			yield, err := wiz.Render("yield", struct{ YieldValue string }{YieldValue: yieldValue.String()})
+			yield, err := wiz.Render("yield", struct {
+				YieldValue string
+				Next       int
+			}{
+				YieldValue: yieldValue.String(),
+				Next:       wiz.NextIndex(),
+			})
 			if err != nil {
 				log.Fatal(err)
 			}
