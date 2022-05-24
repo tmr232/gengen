@@ -128,6 +128,37 @@ func collectImports(pkg *packages.Package) Imports {
 	return imports
 }
 
+type ImportPathsVisitor struct {
+	paths map[string]bool
+	pkg   *packages.Package
+}
+
+func (v ImportPathsVisitor) Visit(n ast.Node) ast.Visitor {
+	ident, isIdent := n.(*ast.Ident)
+	if isIdent {
+		object, exists := v.pkg.TypesInfo.Uses[ident]
+		if exists && object.Pkg() != nil {
+			v.paths[object.Pkg().Path()] = true
+		}
+		return nil
+	}
+	return v
+}
+
+func FindUsedImports(genDef generatorDecls) map[string]bool {
+	paths := make(map[string]bool)
+	visitor := ImportPathsVisitor{
+		paths: paths,
+		pkg:   genDef.pkg,
+	}
+
+	for _, node := range genDef.decls {
+		ast.Walk(visitor, node)
+	}
+
+	return paths
+}
+
 func main() {
 	dir := "./sample"
 	buildTag := "gengen"
@@ -146,8 +177,7 @@ func main() {
 	}
 
 	for _, genDef := range generatorDefs {
-		// To generate the new package - we must copy all imports!
-		imports := collectImports(genDef.pkg)
+		finalImports := CollectUsedImports(genDef)
 		functions := wiz.WithPackage(genDef.pkg).convertFunctions(genDef)
 		src, err := wiz.Render("package",
 			struct {
@@ -156,7 +186,7 @@ func main() {
 				Functions   []string
 			}{
 				PackageName: genDef.pkg.Name,
-				Imports:     imports,
+				Imports:     finalImports,
 				Functions:   functions,
 			})
 		src = formatSource(src)
@@ -179,6 +209,23 @@ func main() {
 	if sample.Error() != nil {
 		fmt.Println("Oh no! Error!")
 	}
+}
+
+func CollectUsedImports(genDef generatorDecls) Imports {
+	// First, find all the imports
+	imports := collectImports(genDef.pkg)
+	// Then, all the imports used by the generators
+	usedImports := FindUsedImports(genDef)
+	// And only use the intersection!
+	var finalImports Imports
+	for _, importLine := range imports {
+		if usedImports[strings.Trim(importLine.Path, "\"")] {
+			finalImports = append(finalImports, importLine)
+		}
+	}
+
+	fmt.Println("Used Imports ", finalImports)
+	return finalImports
 }
 
 func sampleGenerator() gengen.Generator[int] {

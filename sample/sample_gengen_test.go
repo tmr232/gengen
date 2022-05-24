@@ -1,5 +1,3 @@
-//go:build !gengen
-
 package sample
 
 import (
