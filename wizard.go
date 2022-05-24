@@ -59,6 +59,7 @@ func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
 		PkgWizard:   *wiz,
 		fdecl:       fdecl,
 		definitions: make(map[types.Object]string),
+		variables:   make(map[types.Object]string),
 		names:       make(map[string]bool),
 	}
 }
@@ -86,6 +87,7 @@ type FuncWizard struct {
 	fdecl       *ast.FuncDecl
 	maxState    int
 	definitions map[types.Object]string
+	variables   map[types.Object]string
 	names       map[string]bool
 	loopId      int
 }
@@ -106,6 +108,11 @@ func (n *Namer) Name() string {
 	return n.name
 }
 
+func (wiz *FuncWizard) AddFunctionArgument(obj types.Object) {
+	wiz.variables[obj] = obj.Name()
+	wiz.names[obj.Name()] = true
+}
+
 func (wiz *FuncWizard) DefineVariable(obj types.Object) (name string) {
 	namer := Namer{name: obj.Name()}
 	for wiz.names[namer.Name()] {
@@ -113,11 +120,12 @@ func (wiz *FuncWizard) DefineVariable(obj types.Object) (name string) {
 	}
 	wiz.names[namer.Name()] = true
 	wiz.definitions[obj] = namer.Name()
+	wiz.variables[obj] = namer.Name()
 	return namer.Name()
 }
 
 func (wiz *FuncWizard) GetVariable(obj types.Object) (name string) {
-	return wiz.definitions[obj]
+	return wiz.variables[obj]
 }
 
 func (wiz *FuncWizard) StateIndices() []int {
@@ -154,6 +162,15 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	//	fmt.Println(name, scope.Lookup(name).Type().String())
 	//}
 	////fmt.Println("SCOPED NAME", scope.Lookup("a").Type().)
+
+	// Add all function arguments to the function
+	// Otherwise - we won't have names for them!
+	for _, param := range wiz.fdecl.Type.Params.List {
+		for _, name := range param.Names {
+			def := wiz.pkg.TypesInfo.Defs[name]
+			wiz.AddFunctionArgument(def)
+		}
+	}
 
 	var body strings.Builder
 	for _, node := range wiz.fdecl.Body.List {

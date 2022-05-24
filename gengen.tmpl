@@ -20,7 +20,6 @@
         __next := 0
         return &gengen.GeneratorFunction[{{.ReturnType}}]{
             Advance: func() (__hasValue bool, __value {{.ReturnType}}, __err error) {
-        // This should all be generated using a state-manager class.
                 switch __next {
                 {{range .StateIndices}}
                 case {{.}}:
@@ -41,7 +40,6 @@
 {{end}}
 
 {{define "yield"}}
-{{/*TODO: Add state and state labels!*/}}
     __hasValue = true
     __value = {{.YieldValue}}
     __next = {{.Next}}
