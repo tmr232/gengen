@@ -187,8 +187,8 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	}
 	//fmt.Println(string(src))
 
-	var funcAst bytes.Buffer
 	if wiz.fdecl.Name.Name == "fib" {
+		var funcAst bytes.Buffer
 		ast.Fprint(&funcAst, wiz.pkg.Fset, wiz.fdecl.Body, nil)
 		fmt.Println(funcAst.String())
 	}
@@ -304,10 +304,18 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 		tok := node.Op.String()
 		return fmt.Sprintf("%s %s %s", x, tok, y)
 	}
-	return "// Unsupported!"
+	return wiz.Unsupported(node)
 }
 
 func (wiz *FuncWizard) GetLoopId() int {
 	wiz.loopId++
 	return wiz.loopId
+}
+
+func (wiz *FuncWizard) Unsupported(node ast.Node) string {
+	var syntax bytes.Buffer
+	ast.Fprint(&syntax, wiz.pkg.Fset, node, nil)
+	var code bytes.Buffer
+	format.Node(&code, wiz.pkg.Fset, node)
+	return fmt.Sprintf("/*\n%s\n%s\n*/", code.String(), syntax.String())
 }
