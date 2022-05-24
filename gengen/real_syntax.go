@@ -10,6 +10,12 @@ type Generator[T any] interface {
 	Error() error
 }
 
+type Generator2[A, B any] interface {
+	Next() bool
+	Value() (A, B)
+	Error() error
+}
+
 type GeneratorFunction[T any] struct {
 	Advance func() (hasValue bool, value T, err error)
 	value   T
