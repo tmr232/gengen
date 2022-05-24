@@ -70,6 +70,22 @@ __Body{{.Loop}}:
 __Exit{{.Loop}}:
 {{end}}
 
+{{define "if"}}
+    {{.Init}}
+    if {{.Cond}} {
+        goto __Then{{.If}}
+    } else {
+        goto __Else{{.If}}
+    }
+__Then{{.If}}:
+    {{.Body}}
+    goto __After{{.If}}
+__Else{{.If}}:
+    {{.Else}}
+    goto __After{{.If}}
+__After{{.If}}:
+{{end}}
+
 {{define "next"}}
 __Next{{.}}
 {{- end}}

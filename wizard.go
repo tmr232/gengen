@@ -89,7 +89,7 @@ type FuncWizard struct {
 	definitions map[types.Object]string
 	variables   map[types.Object]string
 	names       map[string]bool
-	loopId      int
+	jumpId      int
 }
 
 type Namer struct {
@@ -214,6 +214,11 @@ func (wiz *FuncWizard) convertFunction() []byte {
 }
 
 func (wiz *FuncWizard) convertAst(node ast.Node) string {
+	if node == nil {
+		// This saves some work with conditionally-nil nodes.
+		// E.g. ast.IfStmt.Init
+		return ""
+	}
 	switch node := node.(type) {
 	case *ast.ReturnStmt:
 		if len(node.Results) != 1 {
@@ -309,7 +314,7 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 			}
 			return string(loop)
 		} else {
-			// Regula C-style loop!
+			// Regular C-style loop!
 			loopId := wiz.GetLoopId()
 			body := wiz.convertAst(node.Body)
 			init := wiz.convertAst(node.Init)
@@ -347,13 +352,41 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	case *ast.IncDecStmt:
 		x := wiz.convertAst(node.X)
 		return fmt.Sprintf("%s%s", x, node.Tok)
+	case *ast.IfStmt:
+		loopId := wiz.GetLoopId()
+		body := wiz.convertAst(node.Body)
+		init := wiz.convertAst(node.Init)
+		else_ := wiz.convertAst(node.Else)
+		cond := wiz.convertAst(node.Cond)
+		if_, err := wiz.Render("if", struct {
+			Init string
+			Cond string
+			Else string
+			Body string
+			If   int
+		}{
+			Init: init,
+			Cond: cond,
+			Else: else_,
+			Body: body,
+			If:   loopId,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(if_)
 	}
 	return wiz.Unsupported(node)
 }
 
 func (wiz *FuncWizard) GetLoopId() int {
-	wiz.loopId++
-	return wiz.loopId
+	wiz.jumpId++
+	return wiz.jumpId
+}
+
+func (wiz *FuncWizard) GetIfId() int {
+	wiz.jumpId++
+	return wiz.jumpId
 }
 
 func (wiz *FuncWizard) Unsupported(node ast.Node) string {

@@ -33,3 +33,19 @@ func Yield() gengen.Generator[int] {
 	gengen.Yield(1)
 	return nil
 }
+
+func If(flag bool) gengen.Generator[string] {
+	if flag {
+		gengen.Yield("true")
+	} else {
+		gengen.Yield("false")
+	}
+	return nil
+}
+
+func IterIntSlice(slice []int) gengen.Generator[int] {
+	for _, val := range slice {
+		gengen.Yield(val)
+	}
+	return nil
+}
