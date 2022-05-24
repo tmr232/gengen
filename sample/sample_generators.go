@@ -3,11 +3,10 @@
 package sample
 
 import (
-	xyz "fmt"
 	"github.com/tmr232/gengen/gengen"
 )
 
-func fib() gengen.Generator[int] {
+func Fibonacci() gengen.Generator[int] {
 	a := 1
 	b := 1
 	for {
@@ -21,13 +20,6 @@ func Range(stop int) gengen.Generator[int] {
 		gengen.Yield(i)
 	}
 	return nil
-}
-
-type SomeGenError struct{}
-
-func (s SomeGenError) Error() string {
-	xyz.Println("abc")
-	return "Ooh! Error!"
 }
 
 func Empty() gengen.Generator[string] {
