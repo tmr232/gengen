@@ -52,9 +52,24 @@
 
 
 {{define "forever"}}
-    __Loop{{.Loop}}:
+    __Head{{.Loop}}:
     {{.Body}}
-    goto __Loop{{.Loop}}
+    goto __Head{{.Loop}}
+{{end}}
+
+{{define "for"}}
+    {{.Init}}
+__Head{{.Loop}}:
+    if {{.Cond}} {
+        goto __Body{{.Loop}}
+    } else {
+        goto __Exit{{.Loop}}
+    }
+__Body{{.Loop}}:
+    {{.Body}}
+    {{.Post}}
+    goto __Head{{.Loop}}
+__Exit{{.Loop}}:
 {{end}}
 
 {{define "next"}}

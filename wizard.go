@@ -187,7 +187,7 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	}
 	//fmt.Println(string(src))
 
-	if wiz.fdecl.Name.Name == "fib" {
+	if wiz.fdecl.Name.Name == "Range" {
 		var funcAst bytes.Buffer
 		ast.Fprint(&funcAst, wiz.pkg.Fset, wiz.fdecl.Body, nil)
 		fmt.Println(funcAst.String())
@@ -291,6 +291,30 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 				log.Fatal(err)
 			}
 			return string(loop)
+		} else {
+			// Regula C-style loop!
+			loopId := wiz.GetLoopId()
+			body := wiz.convertAst(node.Body)
+			init := wiz.convertAst(node.Init)
+			post := wiz.convertAst(node.Post)
+			cond := wiz.convertAst(node.Cond)
+			loop, err := wiz.Render("for", struct {
+				Init string
+				Cond string
+				Post string
+				Body string
+				Loop int
+			}{
+				Init: init,
+				Cond: cond,
+				Post: post,
+				Body: body,
+				Loop: loopId,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(loop)
 		}
 	case *ast.BlockStmt:
 		block := make([]string, len(node.List))
@@ -303,6 +327,9 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 		y := wiz.convertAst(node.Y)
 		tok := node.Op.String()
 		return fmt.Sprintf("%s %s %s", x, tok, y)
+	case *ast.IncDecStmt:
+		x := wiz.convertAst(node.X)
+		return fmt.Sprintf("%s%s", x, node.Tok)
 	}
 	return wiz.Unsupported(node)
 }
