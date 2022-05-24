@@ -298,6 +298,11 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 			block[i] = wiz.convertAst(stmt)
 		}
 		return strings.Join(block, "\n")
+	case *ast.BinaryExpr:
+		x := wiz.convertAst(node.X)
+		y := wiz.convertAst(node.Y)
+		tok := node.Op.String()
+		return fmt.Sprintf("%s %s %s", x, tok, y)
 	}
 	return "// Unsupported!"
 }
