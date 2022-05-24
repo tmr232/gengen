@@ -87,6 +87,7 @@ type FuncWizard struct {
 	maxState    int
 	definitions map[types.Object]string
 	names       map[string]bool
+	loopId      int
 }
 
 type Namer struct {
@@ -277,6 +278,31 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 			log.Fatal(err)
 		}
 		return lit.String()
+	case *ast.ForStmt:
+		// Easiest case is a forever
+		if node.Init == nil && node.Cond == nil && node.Post == nil {
+			loopId := wiz.GetLoopId()
+			body := wiz.convertAst(node.Body)
+			loop, err := wiz.Render("forever", struct {
+				Loop int
+				Body string
+			}{Loop: loopId, Body: body})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(loop)
+		}
+	case *ast.BlockStmt:
+		block := make([]string, len(node.List))
+		for i, stmt := range node.List {
+			block[i] = wiz.convertAst(stmt)
+		}
+		return strings.Join(block, "\n")
 	}
 	return "// Unsupported!"
+}
+
+func (wiz *FuncWizard) GetLoopId() int {
+	wiz.loopId++
+	return wiz.loopId
 }

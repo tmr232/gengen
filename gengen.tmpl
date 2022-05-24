@@ -50,6 +50,13 @@
 {{template "next" .Next}}:
 {{end}}
 
+
+{{define "forever"}}
+    __Loop{{.Loop}}:
+    {{.Body}}
+    goto __Loop{{.Loop}}
+{{end}}
+
 {{define "next"}}
 __Next{{.}}
 {{- end}}
