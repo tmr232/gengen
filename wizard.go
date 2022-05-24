@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
+	"go/types"
 	"golang.org/x/tools/go/packages"
 	"log"
 	"strings"
@@ -55,8 +56,10 @@ type PkgWizard struct {
 
 func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
 	return &FuncWizard{
-		PkgWizard: *wiz,
-		fdecl:     fdecl,
+		PkgWizard:   *wiz,
+		fdecl:       fdecl,
+		definitions: make(map[types.Object]string),
+		names:       make(map[string]bool),
 	}
 }
 func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
@@ -80,8 +83,40 @@ func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
 
 type FuncWizard struct {
 	PkgWizard
-	fdecl    *ast.FuncDecl
-	maxState int
+	fdecl       *ast.FuncDecl
+	maxState    int
+	definitions map[types.Object]string
+	names       map[string]bool
+}
+
+type Namer struct {
+	name string
+	id   int
+}
+
+func (n *Namer) Next() {
+	n.id++
+}
+
+func (n *Namer) Name() string {
+	if n.id > 0 {
+		return fmt.Sprintf("%s%d", n.name, n.id)
+	}
+	return n.name
+}
+
+func (wiz *FuncWizard) DefineVariable(obj types.Object) (name string) {
+	namer := Namer{name: obj.Name()}
+	for wiz.names[namer.Name()] {
+		namer.Next()
+	}
+	wiz.names[namer.Name()] = true
+	wiz.definitions[obj] = namer.Name()
+	return namer.Name()
+}
+
+func (wiz *FuncWizard) GetVariable(obj types.Object) (name string) {
+	return wiz.definitions[obj]
 }
 
 func (wiz *FuncWizard) StateIndices() []int {
@@ -111,10 +146,24 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	_, returnType, _ := strings.Cut(wiz.pkg.TypesInfo.TypeOf(wiz.fdecl.Type.Results.List[0].Type).String(), "[")
 	returnType = strings.TrimSuffix(returnType, "]")
 
+	//// We go through all the defs in the function,
+	//// and define the relevant variables.
+	//scope := wiz.pkg.TypesInfo.Scopes[wiz.fdecl.Type]
+	//for _, name := range scope.Names() {
+	//	fmt.Println(name, scope.Lookup(name).Type().String())
+	//}
+	////fmt.Println("SCOPED NAME", scope.Lookup("a").Type().)
+
 	var body strings.Builder
 	for _, node := range wiz.fdecl.Body.List {
 		body.WriteString(wiz.convertAst(node))
 		body.WriteString("\n")
+	}
+
+	variables := make(map[string]string)
+
+	for obj, name := range wiz.definitions {
+		variables[name] = obj.Type().String()
 	}
 
 	src, err := wiz.Render("function", struct {
@@ -122,14 +171,14 @@ func (wiz *FuncWizard) convertFunction() []byte {
 		Signature    string
 		ReturnType   string
 		Body         string
-		State        string
+		State        map[string]string
 		StateIndices []int
 	}{
 		Name:         wiz.fdecl.Name.Name,
 		Signature:    signature,
 		ReturnType:   returnType,
 		Body:         body.String(),
-		State:        "",
+		State:        variables,
 		StateIndices: wiz.StateIndices(),
 	})
 	if err != nil {
@@ -138,7 +187,7 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	//fmt.Println(string(src))
 
 	var funcAst bytes.Buffer
-	if wiz.fdecl.Name.Name == "Yield" {
+	if wiz.fdecl.Name.Name == "fib" {
 		ast.Fprint(&funcAst, wiz.pkg.Fset, wiz.fdecl.Body, nil)
 		fmt.Println(funcAst.String())
 	}
@@ -188,6 +237,46 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 		return "//NO!"
 	case *ast.ExprStmt:
 		return wiz.convertAst(node.X)
+		//case *ast.AssignStmt:
+	case *ast.Ident:
+		/*
+			Check defs & uses
+			If this is a def - define the var, get the possibly new name
+			If a use - get the name based on the uses object
+		*/
+		definition, exists := wiz.pkg.TypesInfo.Defs[node]
+		var name string
+		if exists {
+			name = wiz.DefineVariable(definition)
+		} else {
+			usage := wiz.pkg.TypesInfo.Uses[node]
+			name = wiz.GetVariable(usage)
+		}
+		return name
+	case *ast.AssignStmt:
+		var lhs []string
+		for _, expr := range node.Lhs {
+			lhs = append(lhs, wiz.convertAst(expr))
+		}
+
+		var rhs []string
+		for _, expr := range node.Rhs {
+			rhs = append(rhs, wiz.convertAst(expr))
+		}
+
+		tok := node.Tok.String()
+		if tok == ":=" {
+			tok = "="
+		}
+
+		return strings.Join(lhs, ", ") + " " + tok + " " + strings.Join(rhs, ", ")
+	case *ast.BasicLit:
+		var lit bytes.Buffer
+		err := format.Node(&lit, wiz.pkg.Fset, node)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return lit.String()
 	}
 	return "// Unsupported!"
 }
