@@ -1,6 +1,7 @@
 package sample
 
 import (
+	"github.com/tmr232/gengen/gengen"
 	"reflect"
 	"testing"
 )
@@ -72,5 +73,31 @@ func TestFibonacci(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Invalid sequence. Want %v but got %v.", want, got)
 	}
+
+}
+
+func ToSlice[T any](gen gengen.Generator[T]) (slice []T) {
+	for gen.Next() {
+		slice = append(slice, gen.Value())
+	}
+	// TODO: Handle errors.
+	return
+}
+
+func TestIf(t *testing.T) {
+	t.Run("if true", func(t *testing.T) {
+		want := []string{"true"}
+		got := ToSlice(If(true))
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Want %v but got %v.", want, got)
+		}
+	})
+	t.Run("if false", func(t *testing.T) {
+		want := []string{"false"}
+		got := ToSlice(If(false))
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Want %v but got %v.", want, got)
+		}
+	})
 
 }
