@@ -254,8 +254,13 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 				log.Fatal(err)
 			}
 			return string(yield)
+		} else {
+			args := make([]string, len(node.Args))
+			for i := range args {
+				args[i] = wiz.convertAst(node.Args[i])
+			}
+			return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
 		}
-		return "//NO!"
 	case *ast.ExprStmt:
 		return wiz.convertAst(node.X)
 		//case *ast.AssignStmt:
@@ -266,14 +271,14 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 			If a use - get the name based on the uses object
 		*/
 		definition, exists := wiz.pkg.TypesInfo.Defs[node]
-		var name string
 		if exists {
-			name = wiz.DefineVariable(definition)
-		} else {
-			usage := wiz.pkg.TypesInfo.Uses[node]
-			name = wiz.GetVariable(usage)
+			return wiz.DefineVariable(definition)
 		}
-		return name
+		usage, exists := wiz.pkg.TypesInfo.Uses[node]
+		if exists && usage.Pkg().Path() == wiz.pkg.PkgPath {
+			return wiz.GetVariable(usage)
+		}
+		return node.String()
 	case *ast.AssignStmt:
 		var lhs []string
 		for _, expr := range node.Lhs {
@@ -503,6 +508,11 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 		default:
 			return wiz.Unsupported(node)
 		}
+	case *ast.UnaryExpr:
+		return node.Op.String() + wiz.convertAst(node.X)
+	case *ast.SelectorExpr:
+		expr := wiz.convertAst(node.X) + "." + wiz.convertAst(node.Sel)
+		return expr
 	}
 	return wiz.Unsupported(node)
 }
