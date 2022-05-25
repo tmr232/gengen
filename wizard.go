@@ -90,6 +90,8 @@ type FuncWizard struct {
 	variables   map[types.Object]string
 	names       map[string]bool
 	jumpId      int
+	adapterId   int
+	extraState  []string
 }
 
 type Namer struct {
@@ -191,6 +193,7 @@ func (wiz *FuncWizard) convertFunction() []byte {
 		Body         string
 		State        map[string]string
 		StateIndices []int
+		ExtraState   []string
 	}{
 		Name:         wiz.fdecl.Name.Name,
 		Signature:    signature,
@@ -198,17 +201,12 @@ func (wiz *FuncWizard) convertFunction() []byte {
 		Body:         body.String(),
 		State:        variables,
 		StateIndices: wiz.StateIndices(),
+		ExtraState:   wiz.extraState,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	//fmt.Println(string(src))
-
-	if wiz.fdecl.Name.Name == "Range" {
-		var funcAst bytes.Buffer
-		ast.Fprint(&funcAst, wiz.pkg.Fset, wiz.fdecl.Body, nil)
-		fmt.Println(funcAst.String())
-	}
 
 	return src
 }
@@ -375,6 +373,53 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 			log.Fatal(err)
 		}
 		return string(if_)
+	case *ast.RangeStmt:
+		rangeType := wiz.pkg.TypesInfo.TypeOf(node.X)
+		if rangeType, isMap := rangeType.(*types.Map); isMap {
+			x := wiz.convertAst(node.X)
+			keyType := rangeType.Key()
+			valueType := rangeType.Elem()
+			mapAdapterId := wiz.GetAdapterId()
+			adapterName := fmt.Sprintf("__mapAdapter%d", mapAdapterId)
+			mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[%s, %s]", adapterName, keyType, valueType)
+			loopId := wiz.GetLoopId()
+			body := wiz.convertAst(node.Body)
+			wiz.AddStateLine(mapAdapterDefinition)
+			key := "_"
+			value := "_"
+			if node.Key != nil {
+				key = wiz.convertAst(node.Key)
+			}
+			if node.Value != nil {
+				value = wiz.convertAst(node.Value)
+			}
+			fmt.Println(key, value)
+			forLoop, err := wiz.Render("for-range-map", struct {
+				Adapter   string
+				Key       string
+				KeyType   string
+				Value     string
+				ValueType string
+				Map       string
+				Id        int
+				Body      string
+			}{
+				Adapter:   adapterName,
+				Key:       key,
+				KeyType:   keyType.String(),
+				Value:     value,
+				ValueType: valueType.String(),
+				Map:       x,
+				Id:        loopId,
+				Body:      body,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(forLoop)
+		} else {
+			return wiz.Unsupported(node)
+		}
 	}
 	return wiz.Unsupported(node)
 }
@@ -395,4 +440,13 @@ func (wiz *FuncWizard) Unsupported(node ast.Node) string {
 	var code bytes.Buffer
 	format.Node(&code, wiz.pkg.Fset, node)
 	return fmt.Sprintf("/*\n%s\n%s\n*/", code.String(), syntax.String())
+}
+
+func (wiz *FuncWizard) GetAdapterId() int {
+	wiz.adapterId++
+	return wiz.adapterId
+}
+
+func (wiz *FuncWizard) AddStateLine(definition string) {
+	wiz.extraState = append(wiz.extraState, definition)
 }

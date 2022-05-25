@@ -49,3 +49,17 @@ func IterIntSlice(slice []int) gengen.Generator[int] {
 	}
 	return nil
 }
+
+func IterMapValues(dict map[int]string) gengen.Generator[string] {
+	for _, value := range dict {
+		gengen.Yield(value)
+	}
+	return nil
+}
+
+func IterMapKeys(dict map[int]string) gengen.Generator[int] {
+	for key, _ := range dict {
+		gengen.Yield(key)
+	}
+	return nil
+}

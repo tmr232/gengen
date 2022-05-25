@@ -23,7 +23,7 @@ type generatorDecls struct {
 
 func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	cfg := &packages.Config{
-		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax | packages.NeedName,
+		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax | packages.NeedName | packages.NeedImports,
 		Context:    nil,
 		Logf:       nil,
 		Dir:        dir,

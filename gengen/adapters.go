@@ -51,7 +51,7 @@ func (m *MapAdapter[K, V]) Error() error {
 	return nil
 }
 
-func NewMapAdaptor[K comparable, V any](map_ map[K]V) *MapAdapter[K, V] {
+func NewMapAdapter[K comparable, V any](map_ map[K]V) *MapAdapter[K, V] {
 	items := make([]Pair[K, V], 0, len(map_))
 	for key, value := range map_ {
 		items = append(items, *NewPair(key, value))

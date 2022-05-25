@@ -3,6 +3,7 @@ package sample
 import (
 	"github.com/tmr232/gengen/gengen"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -100,4 +101,44 @@ func TestIf(t *testing.T) {
 		}
 	})
 
+}
+
+func TestIterMapKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[int]string
+		want  []int
+	}{
+		{"empty", map[int]string{}, nil},
+		{"single", map[int]string{1: "a"}, []int{1}},
+		{"multiple", map[int]string{1: "a", 2: "b"}, []int{1, 2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice[int](IterMapKeys(tt.input)); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIterMapValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[int]string
+		want  []string
+	}{
+		{"empty", map[int]string{}, nil},
+		{"single", map[int]string{1: "a"}, []string{"a"}},
+		{"multiple", map[int]string{1: "a", 2: "b"}, []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ToSlice[string](IterMapValues(tt.input))
+			sort.Strings(got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
