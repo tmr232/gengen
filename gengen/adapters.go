@@ -14,8 +14,8 @@ func (s *SliceAdapter[T]) Next() bool {
 	return s.index < len(s.slice)
 }
 
-func (s *SliceAdapter[T]) Value() T {
-	return s.slice[s.index]
+func (s *SliceAdapter[T]) Value() (int, T) {
+	return s.index, s.slice[s.index]
 }
 
 func (s *SliceAdapter[T]) Error() error {

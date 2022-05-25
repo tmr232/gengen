@@ -105,6 +105,22 @@ __Body{{.Id}}:
 __After{{.Id}}:
 {{end}}
 
+{{define "for-range-slice"}}
+    {{.Adapter}} = gengen.NewSliceAdapter[{{.ValueType}}]({{.Slice}})
+
+    __Head{{.Id}}:
+    if {{.Adapter}}.Next() {
+    goto __Body{{.Id}}
+    } else {
+    goto __After{{.Id}}
+    }
+    __Body{{.Id}}:
+    {{.Key}}, {{.Value}} = {{.Adapter}}.Value()
+    {{.Body}}
+    goto __Head{{.Id}}
+    __After{{.Id}}:
+{{end}}
+
 {{define "next"}}
 __Next{{.}}
 {{- end}}

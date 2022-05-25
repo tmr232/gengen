@@ -375,7 +375,8 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 		return string(if_)
 	case *ast.RangeStmt:
 		rangeType := wiz.pkg.TypesInfo.TypeOf(node.X)
-		if rangeType, isMap := rangeType.(*types.Map); isMap {
+		switch rangeType := rangeType.(type) {
+		case *types.Map:
 			x := wiz.convertAst(node.X)
 			keyType := rangeType.Key()
 			valueType := rangeType.Elem()
@@ -417,7 +418,89 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 				log.Fatal(err)
 			}
 			return string(forLoop)
-		} else {
+		case *types.Slice:
+			x := wiz.convertAst(node.X)
+			valueType := rangeType.Elem()
+			mapAdapterId := wiz.GetAdapterId()
+			adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
+			mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
+			loopId := wiz.GetLoopId()
+			body := wiz.convertAst(node.Body)
+			wiz.AddStateLine(mapAdapterDefinition)
+			key := "_"
+			value := "_"
+			if node.Key != nil {
+				key = wiz.convertAst(node.Key)
+			}
+			if node.Value != nil {
+				value = wiz.convertAst(node.Value)
+			}
+			fmt.Println(key, value)
+			forLoop, err := wiz.Render("for-range-slice", struct {
+				Adapter   string
+				Key       string
+				KeyType   string
+				Value     string
+				ValueType string
+				Slice     string
+				Id        int
+				Body      string
+			}{
+				Adapter:   adapterName,
+				Key:       key,
+				KeyType:   "int",
+				Value:     value,
+				ValueType: valueType.String(),
+				Slice:     x,
+				Id:        loopId,
+				Body:      body,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(forLoop)
+		case *types.Array:
+			x := wiz.convertAst(node.X)
+			valueType := rangeType.Elem()
+			mapAdapterId := wiz.GetAdapterId()
+			adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
+			mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
+			loopId := wiz.GetLoopId()
+			body := wiz.convertAst(node.Body)
+			wiz.AddStateLine(mapAdapterDefinition)
+			key := "_"
+			value := "_"
+			if node.Key != nil {
+				key = wiz.convertAst(node.Key)
+			}
+			if node.Value != nil {
+				value = wiz.convertAst(node.Value)
+			}
+			fmt.Println(key, value)
+			forLoop, err := wiz.Render("for-range-slice", struct {
+				Adapter   string
+				Key       string
+				KeyType   string
+				Value     string
+				ValueType string
+				Slice     string
+				Id        int
+				Body      string
+			}{
+				Adapter:   adapterName,
+				Key:       key,
+				KeyType:   "int",
+				Value:     value,
+				ValueType: valueType.String(),
+				Slice:     x,
+				Id:        loopId,
+				Body:      body,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(forLoop)
+		default:
 			return wiz.Unsupported(node)
 		}
 	}

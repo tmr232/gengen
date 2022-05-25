@@ -142,3 +142,22 @@ func TestIterMapValues(t *testing.T) {
 		})
 	}
 }
+
+func TestIterIntSlice(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []int
+		want  []int
+	}{
+		{"empty", []int{}, nil},
+		{"single", []int{1}, []int{1}},
+		{"multiple", []int{5, 3}, []int{5, 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice[int](IterIntSlice(tt.input)); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
