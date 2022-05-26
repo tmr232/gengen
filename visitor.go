@@ -15,9 +15,9 @@ type AstVisitor struct {
 	v VisitorDefinition
 }
 
-func (v *AstVisitor) Visit(node ast.Node) {
+func Visit(v VisitorDefinition, node ast.Node) {
 	nodeType := reflect.TypeOf(node)
-	visitorValue := reflect.ValueOf(v.v)
+	visitorValue := reflect.ValueOf(v)
 	methodValue := visitorValue.MethodByName("Visit" + nodeType.Elem().Name())
 	if methodValue == *new(reflect.Value) {
 		return
@@ -30,6 +30,10 @@ func (v *AstVisitor) Visit(node ast.Node) {
 
 	nodeValue := reflect.ValueOf(node)
 	methodValue.Call([]reflect.Value{nodeValue})
+}
+
+func (v *AstVisitor) Visit(node ast.Node) {
+	Visit(v.v, node)
 }
 
 type Magic struct{}
