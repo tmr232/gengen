@@ -367,8 +367,8 @@ func (wiz *FuncWizard) VisitIncDecStmt(node *ast.IncDecStmt) string {
 }
 func (wiz *FuncWizard) VisitIfStmt(node *ast.IfStmt) string {
 	loopId := wiz.GetIfId()
-	body := wiz.convertAst(node.Body)
 	init := wiz.convertAst(node.Init)
+	body := wiz.convertAst(node.Body)
 	else_ := wiz.convertAst(node.Else)
 	cond := wiz.convertAst(node.Cond)
 	if_, err := wiz.Render("if", struct {
@@ -400,7 +400,6 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		mapAdapterId := wiz.GetAdapterId()
 		adapterName := fmt.Sprintf("__mapAdapter%d", mapAdapterId)
 		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[%s, %s]", adapterName, keyType, valueType)
-		body := wiz.convertAst(node.Body)
 		wiz.AddStateLine(mapAdapterDefinition)
 		key := "_"
 		value := "_"
@@ -410,6 +409,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		if node.Value != nil {
 			value = wiz.convertAst(node.Value)
 		}
+		body := wiz.convertAst(node.Body)
 		fmt.Println(key, value)
 		forLoop, err := wiz.Render("for-range-map", struct {
 			Adapter   string
@@ -440,7 +440,6 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		mapAdapterId := wiz.GetAdapterId()
 		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
 		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
-		body := wiz.convertAst(node.Body)
 		wiz.AddStateLine(mapAdapterDefinition)
 		key := "_"
 		value := "_"
@@ -450,6 +449,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		if node.Value != nil {
 			value = wiz.convertAst(node.Value)
 		}
+		body := wiz.convertAst(node.Body)
 		fmt.Println(key, value)
 		forLoop, err := wiz.Render("for-range-slice", struct {
 			Adapter   string
@@ -480,7 +480,6 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		mapAdapterId := wiz.GetAdapterId()
 		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
 		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
-		body := wiz.convertAst(node.Body)
 		wiz.AddStateLine(mapAdapterDefinition)
 		key := "_"
 		value := "_"
@@ -490,6 +489,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		if node.Value != nil {
 			value = wiz.convertAst(node.Value)
 		}
+		body := wiz.convertAst(node.Body)
 		fmt.Println(key, value)
 		forLoop, err := wiz.Render("for-range-slice", struct {
 			Adapter   string
