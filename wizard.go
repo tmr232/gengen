@@ -434,49 +434,9 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			log.Fatal(err)
 		}
 		return string(forLoop)
-	case *types.Slice:
+	case *types.Slice, *types.Array:
 		x := wiz.convertAst(node.X)
-		valueType := rangeType.Elem()
-		mapAdapterId := wiz.GetAdapterId()
-		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
-		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
-		wiz.AddStateLine(mapAdapterDefinition)
-		key := "_"
-		value := "_"
-		if node.Key != nil {
-			key = wiz.convertAst(node.Key)
-		}
-		if node.Value != nil {
-			value = wiz.convertAst(node.Value)
-		}
-		body := wiz.convertAst(node.Body)
-		fmt.Println(key, value)
-		forLoop, err := wiz.Render("for-range-slice", struct {
-			Adapter   string
-			Key       string
-			KeyType   string
-			Value     string
-			ValueType string
-			Slice     string
-			Loop      LoopFrame
-			Body      string
-		}{
-			Adapter:   adapterName,
-			Key:       key,
-			KeyType:   "int",
-			Value:     value,
-			ValueType: valueType.String(),
-			Slice:     x,
-			Loop:      *wiz.GetLoopFrame(),
-			Body:      body,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-		return string(forLoop)
-	case *types.Array:
-		x := wiz.convertAst(node.X)
-		valueType := rangeType.Elem()
+		valueType := rangeType.(interface{ Elem() types.Type }).Elem()
 		mapAdapterId := wiz.GetAdapterId()
 		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
 		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
