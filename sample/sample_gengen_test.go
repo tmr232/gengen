@@ -154,7 +154,9 @@ func TestIterMapKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ToSlice[int](IterMapKeys(tt.input)); !reflect.DeepEqual(got, tt.want) {
+			got := ToSlice[int](IterMapKeys(tt.input))
+			sort.Ints(got)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got = %v, want %v", got, tt.want)
 			}
 		})
@@ -180,6 +182,31 @@ func TestTakeIntFromSlice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ToSlice[int](TakeIntFromSlice(tt.args.slice, tt.args.n)); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTakeIntFromGenerator(t *testing.T) {
+	type Args struct {
+		stop int
+		n    int
+	}
+	tests := []struct {
+		name string
+		args Args
+		want []int
+	}{
+		{"empty", Args{0, 0}, nil},
+		{"1 item", Args{4, 1}, []int{0}},
+		{"2 items", Args{4, 2}, []int{0, 1}},
+		{"all items", Args{4, 4}, []int{0, 1, 2, 3}},
+		{"more than len", Args{4, 5}, []int{0, 1, 2, 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice[int](TakeIntFromGenerator(Range(tt.args.stop), tt.args.n)); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got = %v, want %v", got, tt.want)
 			}
 		})
