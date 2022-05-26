@@ -7,15 +7,11 @@ import (
 	"reflect"
 )
 
-type VisitorDefinition interface {
+type AstVisitor interface {
 	astVisitor()
 }
 
-type AstVisitor struct {
-	v VisitorDefinition
-}
-
-func Visit(v VisitorDefinition, node ast.Node) {
+func Visit(v AstVisitor, node ast.Node) {
 	nodeType := reflect.TypeOf(node)
 	visitorValue := reflect.ValueOf(v)
 	methodValue := visitorValue.MethodByName("Visit" + nodeType.Elem().Name())
@@ -32,11 +28,10 @@ func Visit(v VisitorDefinition, node ast.Node) {
 	methodValue.Call([]reflect.Value{nodeValue})
 }
 
-func (v *AstVisitor) Visit(node ast.Node) {
-	Visit(v.v, node)
-}
-
 type Magic struct{}
 
+func (m *Magic) Visit(node ast.Node) {
+	Visit(m, node)
+}
 func (m *Magic) astVisitor()                          {}
 func (m *Magic) VisitReturnStmt(node *ast.ReturnStmt) { fmt.Println("Yay") }
