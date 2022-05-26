@@ -80,3 +80,12 @@ func TakeIntFromGenerator(source gengen.Generator[int], n int) gengen.Generator[
 	}
 	return nil
 }
+
+func SomeIntScan(n int) gengen.Generator[[]int] {
+	data := []int{}
+	for i := 0; i < n; i++ {
+		data = append(data, i)
+		gengen.Yield(data)
+	}
+	return nil
+}

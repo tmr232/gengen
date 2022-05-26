@@ -325,10 +325,10 @@ func (wiz *FuncWizard) VisitForStmt(node *ast.ForStmt) string {
 		return string(loop)
 	} else {
 		// Regular C-style loop!
-		body := wiz.convertAst(node.Body)
 		init := wiz.convertAst(node.Init)
-		post := wiz.convertAst(node.Post)
 		cond := wiz.convertAst(node.Cond)
+		post := wiz.convertAst(node.Post)
+		body := wiz.convertAst(node.Body)
 		loop, err := wiz.Render("for", struct {
 			Init string
 			Cond string
@@ -541,6 +541,24 @@ func (wiz *FuncWizard) VisitBranchStmt(node *ast.BranchStmt) string {
 		return fmt.Sprintf("goto __Continue%d", wiz.GetLoopId())
 	}
 	return wiz.Unsupported(node)
+}
+
+func (wiz *FuncWizard) VisitCompositeLit(node *ast.CompositeLit) string {
+	elts := make([]string, len(node.Elts))
+	for i, elt := range node.Elts {
+		elts[i] = wiz.convertAst(elt)
+	}
+
+	return wiz.convertAst(node.Type) + "{" + strings.Join(elts, ", ") + "}"
+
+}
+func (wiz *FuncWizard) VisitArrayType(node *ast.ArrayType) string {
+	var arrType bytes.Buffer
+	err := format.Node(&arrType, wiz.pkg.Fset, node)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return arrType.String()
 }
 func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	if node == nil {

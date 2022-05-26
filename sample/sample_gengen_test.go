@@ -212,3 +212,25 @@ func TestTakeIntFromGenerator(t *testing.T) {
 		})
 	}
 }
+
+func TestSomeIntScan(t *testing.T) {
+	type Args struct {
+		n int
+	}
+	tests := []struct {
+		name string
+		args Args
+		want [][]int
+	}{
+		{"empty", Args{0}, nil},
+		{"1 item", Args{1}, [][]int{{0}}},
+		{"2 items", Args{2}, [][]int{{0}, {0, 1}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice[[]int](SomeIntScan(tt.args.n)); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
