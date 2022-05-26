@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
+	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"log"
@@ -92,6 +93,7 @@ type FuncWizard struct {
 	jumpId      int
 	adapterId   int
 	extraState  []string
+	loopStack   []int
 }
 
 type Namer struct {
@@ -211,315 +213,358 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	return src
 }
 
+func (wiz *FuncWizard) GenericAstVisitor() string { return "" }
+func (wiz *FuncWizard) VisitReturnStmt(node *ast.ReturnStmt) string {
+	if len(node.Results) != 1 {
+		log.Fatalf("Expected 1 result, got %d", len(node.Results))
+	}
+	var retval bytes.Buffer
+	err := format.Node(&retval, wiz.pkg.Fset, node.Results[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	returnStatement, err := wiz.Render("return", struct{ ReturnValue string }{ReturnValue: retval.String()})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(returnStatement)
+}
+func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
+	object := wiz.pkg.TypesInfo.Uses[node.Fun.(*ast.SelectorExpr).Sel]
+	if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
+		// Yield only accepts one argument
+		if len(node.Args) != 1 {
+			log.Fatal("Yield accepts a single argument.")
+		}
+		var yieldValue bytes.Buffer
+		format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
+
+		yield, err := wiz.Render("yield", struct {
+			YieldValue string
+			Next       int
+		}{
+			YieldValue: yieldValue.String(),
+			Next:       wiz.NextIndex(),
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(yield)
+	} else {
+		args := make([]string, len(node.Args))
+		for i := range args {
+			args[i] = wiz.convertAst(node.Args[i])
+		}
+		return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
+	}
+
+}
+func (wiz *FuncWizard) VisitExprStmt(node *ast.ExprStmt) string {
+	return wiz.convertAst(node.X)
+}
+func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
+	/*
+		Check defs & uses
+		If this is a def - define the var, get the possibly new name
+		If a use - get the name based on the uses object
+	*/
+	definition, exists := wiz.pkg.TypesInfo.Defs[node]
+	if exists {
+		return wiz.DefineVariable(definition)
+	}
+	usage, exists := wiz.pkg.TypesInfo.Uses[node]
+	if exists && usage.Pkg().Path() == wiz.pkg.PkgPath {
+		return wiz.GetVariable(usage)
+	}
+	return node.String()
+}
+func (wiz *FuncWizard) VisitAssignStmt(node *ast.AssignStmt) string {
+	var lhs []string
+	for _, expr := range node.Lhs {
+		lhs = append(lhs, wiz.convertAst(expr))
+	}
+
+	var rhs []string
+	for _, expr := range node.Rhs {
+		rhs = append(rhs, wiz.convertAst(expr))
+	}
+
+	tok := node.Tok.String()
+	if tok == ":=" {
+		tok = "="
+	}
+
+	return strings.Join(lhs, ", ") + " " + tok + " " + strings.Join(rhs, ", ")
+}
+func (wiz *FuncWizard) VisitBasicLit(node *ast.BasicLit) string {
+	var lit bytes.Buffer
+	err := format.Node(&lit, wiz.pkg.Fset, node)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return lit.String()
+}
+
+func (wiz *FuncWizard) VisitForStmt(node *ast.ForStmt) string {
+	// Easiest case is a forever
+	loopId := wiz.EnterLoop()
+	defer wiz.ExitLoop()
+	if node.Init == nil && node.Cond == nil && node.Post == nil {
+		body := wiz.convertAst(node.Body)
+		loop, err := wiz.Render("forever", struct {
+			Loop int
+			Body string
+		}{Loop: loopId, Body: body})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(loop)
+	} else {
+		// Regular C-style loop!
+		body := wiz.convertAst(node.Body)
+		init := wiz.convertAst(node.Init)
+		post := wiz.convertAst(node.Post)
+		cond := wiz.convertAst(node.Cond)
+		loop, err := wiz.Render("for", struct {
+			Init string
+			Cond string
+			Post string
+			Body string
+			Loop int
+		}{
+			Init: init,
+			Cond: cond,
+			Post: post,
+			Body: body,
+			Loop: loopId,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(loop)
+	}
+}
+func (wiz *FuncWizard) VisitBlockStmt(node *ast.BlockStmt) string {
+	block := make([]string, len(node.List))
+	for i, stmt := range node.List {
+		block[i] = wiz.convertAst(stmt)
+	}
+	return strings.Join(block, "\n")
+}
+func (wiz *FuncWizard) VisitBinaryExpr(node *ast.BinaryExpr) string {
+	x := wiz.convertAst(node.X)
+	y := wiz.convertAst(node.Y)
+	tok := node.Op.String()
+	return fmt.Sprintf("%s %s %s", x, tok, y)
+}
+func (wiz *FuncWizard) VisitIncDecStmt(node *ast.IncDecStmt) string {
+	x := wiz.convertAst(node.X)
+	return fmt.Sprintf("%s%s", x, node.Tok)
+}
+func (wiz *FuncWizard) VisitIfStmt(node *ast.IfStmt) string {
+	loopId := wiz.GetIfId()
+	body := wiz.convertAst(node.Body)
+	init := wiz.convertAst(node.Init)
+	else_ := wiz.convertAst(node.Else)
+	cond := wiz.convertAst(node.Cond)
+	if_, err := wiz.Render("if", struct {
+		Init string
+		Cond string
+		Else string
+		Body string
+		If   int
+	}{
+		Init: init,
+		Cond: cond,
+		Else: else_,
+		Body: body,
+		If:   loopId,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(if_)
+}
+func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
+	rangeType := wiz.pkg.TypesInfo.TypeOf(node.X)
+	loopId := wiz.EnterLoop()
+	defer wiz.ExitLoop()
+	switch rangeType := rangeType.(type) {
+	case *types.Map:
+		x := wiz.convertAst(node.X)
+		keyType := rangeType.Key()
+		valueType := rangeType.Elem()
+		mapAdapterId := wiz.GetAdapterId()
+		adapterName := fmt.Sprintf("__mapAdapter%d", mapAdapterId)
+		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[%s, %s]", adapterName, keyType, valueType)
+		body := wiz.convertAst(node.Body)
+		wiz.AddStateLine(mapAdapterDefinition)
+		key := "_"
+		value := "_"
+		if node.Key != nil {
+			key = wiz.convertAst(node.Key)
+		}
+		if node.Value != nil {
+			value = wiz.convertAst(node.Value)
+		}
+		fmt.Println(key, value)
+		forLoop, err := wiz.Render("for-range-map", struct {
+			Adapter   string
+			Key       string
+			KeyType   string
+			Value     string
+			ValueType string
+			Map       string
+			Id        int
+			Body      string
+		}{
+			Adapter:   adapterName,
+			Key:       key,
+			KeyType:   keyType.String(),
+			Value:     value,
+			ValueType: valueType.String(),
+			Map:       x,
+			Id:        loopId,
+			Body:      body,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(forLoop)
+	case *types.Slice:
+		x := wiz.convertAst(node.X)
+		valueType := rangeType.Elem()
+		mapAdapterId := wiz.GetAdapterId()
+		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
+		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
+		body := wiz.convertAst(node.Body)
+		wiz.AddStateLine(mapAdapterDefinition)
+		key := "_"
+		value := "_"
+		if node.Key != nil {
+			key = wiz.convertAst(node.Key)
+		}
+		if node.Value != nil {
+			value = wiz.convertAst(node.Value)
+		}
+		fmt.Println(key, value)
+		forLoop, err := wiz.Render("for-range-slice", struct {
+			Adapter   string
+			Key       string
+			KeyType   string
+			Value     string
+			ValueType string
+			Slice     string
+			Id        int
+			Body      string
+		}{
+			Adapter:   adapterName,
+			Key:       key,
+			KeyType:   "int",
+			Value:     value,
+			ValueType: valueType.String(),
+			Slice:     x,
+			Id:        loopId,
+			Body:      body,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(forLoop)
+	case *types.Array:
+		x := wiz.convertAst(node.X)
+		valueType := rangeType.Elem()
+		mapAdapterId := wiz.GetAdapterId()
+		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
+		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
+		body := wiz.convertAst(node.Body)
+		wiz.AddStateLine(mapAdapterDefinition)
+		key := "_"
+		value := "_"
+		if node.Key != nil {
+			key = wiz.convertAst(node.Key)
+		}
+		if node.Value != nil {
+			value = wiz.convertAst(node.Value)
+		}
+		fmt.Println(key, value)
+		forLoop, err := wiz.Render("for-range-slice", struct {
+			Adapter   string
+			Key       string
+			KeyType   string
+			Value     string
+			ValueType string
+			Slice     string
+			Id        int
+			Body      string
+		}{
+			Adapter:   adapterName,
+			Key:       key,
+			KeyType:   "int",
+			Value:     value,
+			ValueType: valueType.String(),
+			Slice:     x,
+			Id:        loopId,
+			Body:      body,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(forLoop)
+	default:
+		return wiz.Unsupported(node)
+	}
+
+}
+func (wiz *FuncWizard) VisitUnaryExpr(node *ast.UnaryExpr) string {
+
+	return node.Op.String() + wiz.convertAst(node.X)
+}
+func (wiz *FuncWizard) VisitSelectorExpr(node *ast.SelectorExpr) string {
+
+	expr := wiz.convertAst(node.X) + "." + wiz.convertAst(node.Sel)
+	return expr
+}
+func (wiz *FuncWizard) VisitBranchStmt(node *ast.BranchStmt) string {
+	if node.Label != nil {
+		return wiz.Unsupported(node)
+	}
+	switch node.Tok {
+	case token.BREAK:
+		return fmt.Sprintf("goto __After%d", wiz.GetLoopId())
+	case token.CONTINUE:
+		return fmt.Sprintf("goto __Continue%d", wiz.GetLoopId())
+	}
+	return wiz.Unsupported(node)
+}
 func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	if node == nil {
 		// This saves some work with conditionally-nil nodes.
 		// E.g. ast.IfStmt.Init
 		return ""
 	}
-	switch node := node.(type) {
-	case *ast.ReturnStmt:
-		if len(node.Results) != 1 {
-			log.Fatalf("Expected 1 result, got %d", len(node.Results))
-		}
-		var retval bytes.Buffer
-		err := format.Node(&retval, wiz.pkg.Fset, node.Results[0])
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		returnStatement, err := wiz.Render("return", struct{ ReturnValue string }{ReturnValue: retval.String()})
-		if err != nil {
-			log.Fatal(err)
-		}
-		return string(returnStatement)
-	case *ast.CallExpr:
-		object := wiz.pkg.TypesInfo.Uses[node.Fun.(*ast.SelectorExpr).Sel]
-		if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
-			// Yield only accepts one argument
-			if len(node.Args) != 1 {
-				log.Fatal("Yield accepts a single argument.")
-			}
-			var yieldValue bytes.Buffer
-			format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
-
-			yield, err := wiz.Render("yield", struct {
-				YieldValue string
-				Next       int
-			}{
-				YieldValue: yieldValue.String(),
-				Next:       wiz.NextIndex(),
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			return string(yield)
-		} else {
-			args := make([]string, len(node.Args))
-			for i := range args {
-				args[i] = wiz.convertAst(node.Args[i])
-			}
-			return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
-		}
-	case *ast.ExprStmt:
-		return wiz.convertAst(node.X)
-		//case *ast.AssignStmt:
-	case *ast.Ident:
-		/*
-			Check defs & uses
-			If this is a def - define the var, get the possibly new name
-			If a use - get the name based on the uses object
-		*/
-		definition, exists := wiz.pkg.TypesInfo.Defs[node]
-		if exists {
-			return wiz.DefineVariable(definition)
-		}
-		usage, exists := wiz.pkg.TypesInfo.Uses[node]
-		if exists && usage.Pkg().Path() == wiz.pkg.PkgPath {
-			return wiz.GetVariable(usage)
-		}
-		return node.String()
-	case *ast.AssignStmt:
-		var lhs []string
-		for _, expr := range node.Lhs {
-			lhs = append(lhs, wiz.convertAst(expr))
-		}
-
-		var rhs []string
-		for _, expr := range node.Rhs {
-			rhs = append(rhs, wiz.convertAst(expr))
-		}
-
-		tok := node.Tok.String()
-		if tok == ":=" {
-			tok = "="
-		}
-
-		return strings.Join(lhs, ", ") + " " + tok + " " + strings.Join(rhs, ", ")
-	case *ast.BasicLit:
-		var lit bytes.Buffer
-		err := format.Node(&lit, wiz.pkg.Fset, node)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return lit.String()
-	case *ast.ForStmt:
-		// Easiest case is a forever
-		if node.Init == nil && node.Cond == nil && node.Post == nil {
-			loopId := wiz.GetLoopId()
-			body := wiz.convertAst(node.Body)
-			loop, err := wiz.Render("forever", struct {
-				Loop int
-				Body string
-			}{Loop: loopId, Body: body})
-			if err != nil {
-				log.Fatal(err)
-			}
-			return string(loop)
-		} else {
-			// Regular C-style loop!
-			loopId := wiz.GetLoopId()
-			body := wiz.convertAst(node.Body)
-			init := wiz.convertAst(node.Init)
-			post := wiz.convertAst(node.Post)
-			cond := wiz.convertAst(node.Cond)
-			loop, err := wiz.Render("for", struct {
-				Init string
-				Cond string
-				Post string
-				Body string
-				Loop int
-			}{
-				Init: init,
-				Cond: cond,
-				Post: post,
-				Body: body,
-				Loop: loopId,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			return string(loop)
-		}
-	case *ast.BlockStmt:
-		block := make([]string, len(node.List))
-		for i, stmt := range node.List {
-			block[i] = wiz.convertAst(stmt)
-		}
-		return strings.Join(block, "\n")
-	case *ast.BinaryExpr:
-		x := wiz.convertAst(node.X)
-		y := wiz.convertAst(node.Y)
-		tok := node.Op.String()
-		return fmt.Sprintf("%s %s %s", x, tok, y)
-	case *ast.IncDecStmt:
-		x := wiz.convertAst(node.X)
-		return fmt.Sprintf("%s%s", x, node.Tok)
-	case *ast.IfStmt:
-		loopId := wiz.GetLoopId()
-		body := wiz.convertAst(node.Body)
-		init := wiz.convertAst(node.Init)
-		else_ := wiz.convertAst(node.Else)
-		cond := wiz.convertAst(node.Cond)
-		if_, err := wiz.Render("if", struct {
-			Init string
-			Cond string
-			Else string
-			Body string
-			If   int
-		}{
-			Init: init,
-			Cond: cond,
-			Else: else_,
-			Body: body,
-			If:   loopId,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-		return string(if_)
-	case *ast.RangeStmt:
-		rangeType := wiz.pkg.TypesInfo.TypeOf(node.X)
-		switch rangeType := rangeType.(type) {
-		case *types.Map:
-			x := wiz.convertAst(node.X)
-			keyType := rangeType.Key()
-			valueType := rangeType.Elem()
-			mapAdapterId := wiz.GetAdapterId()
-			adapterName := fmt.Sprintf("__mapAdapter%d", mapAdapterId)
-			mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[%s, %s]", adapterName, keyType, valueType)
-			loopId := wiz.GetLoopId()
-			body := wiz.convertAst(node.Body)
-			wiz.AddStateLine(mapAdapterDefinition)
-			key := "_"
-			value := "_"
-			if node.Key != nil {
-				key = wiz.convertAst(node.Key)
-			}
-			if node.Value != nil {
-				value = wiz.convertAst(node.Value)
-			}
-			fmt.Println(key, value)
-			forLoop, err := wiz.Render("for-range-map", struct {
-				Adapter   string
-				Key       string
-				KeyType   string
-				Value     string
-				ValueType string
-				Map       string
-				Id        int
-				Body      string
-			}{
-				Adapter:   adapterName,
-				Key:       key,
-				KeyType:   keyType.String(),
-				Value:     value,
-				ValueType: valueType.String(),
-				Map:       x,
-				Id:        loopId,
-				Body:      body,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			return string(forLoop)
-		case *types.Slice:
-			x := wiz.convertAst(node.X)
-			valueType := rangeType.Elem()
-			mapAdapterId := wiz.GetAdapterId()
-			adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
-			mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
-			loopId := wiz.GetLoopId()
-			body := wiz.convertAst(node.Body)
-			wiz.AddStateLine(mapAdapterDefinition)
-			key := "_"
-			value := "_"
-			if node.Key != nil {
-				key = wiz.convertAst(node.Key)
-			}
-			if node.Value != nil {
-				value = wiz.convertAst(node.Value)
-			}
-			fmt.Println(key, value)
-			forLoop, err := wiz.Render("for-range-slice", struct {
-				Adapter   string
-				Key       string
-				KeyType   string
-				Value     string
-				ValueType string
-				Slice     string
-				Id        int
-				Body      string
-			}{
-				Adapter:   adapterName,
-				Key:       key,
-				KeyType:   "int",
-				Value:     value,
-				ValueType: valueType.String(),
-				Slice:     x,
-				Id:        loopId,
-				Body:      body,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			return string(forLoop)
-		case *types.Array:
-			x := wiz.convertAst(node.X)
-			valueType := rangeType.Elem()
-			mapAdapterId := wiz.GetAdapterId()
-			adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
-			mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, valueType)
-			loopId := wiz.GetLoopId()
-			body := wiz.convertAst(node.Body)
-			wiz.AddStateLine(mapAdapterDefinition)
-			key := "_"
-			value := "_"
-			if node.Key != nil {
-				key = wiz.convertAst(node.Key)
-			}
-			if node.Value != nil {
-				value = wiz.convertAst(node.Value)
-			}
-			fmt.Println(key, value)
-			forLoop, err := wiz.Render("for-range-slice", struct {
-				Adapter   string
-				Key       string
-				KeyType   string
-				Value     string
-				ValueType string
-				Slice     string
-				Id        int
-				Body      string
-			}{
-				Adapter:   adapterName,
-				Key:       key,
-				KeyType:   "int",
-				Value:     value,
-				ValueType: valueType.String(),
-				Slice:     x,
-				Id:        loopId,
-				Body:      body,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			return string(forLoop)
-		default:
-			return wiz.Unsupported(node)
-		}
-	case *ast.UnaryExpr:
-		return node.Op.String() + wiz.convertAst(node.X)
-	case *ast.SelectorExpr:
-		expr := wiz.convertAst(node.X) + "." + wiz.convertAst(node.Sel)
-		return expr
+	visitor := GenericVisit[string](wiz, node)
+	if visitor != nil {
+		return visitor()
+	} else {
+		return wiz.Unsupported(node)
 	}
-	return wiz.Unsupported(node)
 }
 
 func (wiz *FuncWizard) GetLoopId() int {
+	return wiz.loopStack[len(wiz.loopStack)-1]
+}
+
+func (wiz *FuncWizard) EnterLoop() int {
 	wiz.jumpId++
-	return wiz.jumpId
+	loopId := wiz.jumpId
+	wiz.loopStack = append(wiz.loopStack, loopId)
+	return loopId
+}
+
+func (wiz *FuncWizard) ExitLoop() {
+	wiz.loopStack = wiz.loopStack[0 : len(wiz.loopStack)-1]
 }
 
 func (wiz *FuncWizard) GetIfId() int {

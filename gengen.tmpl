@@ -51,11 +51,27 @@
 {{template "next" .Next}}:
 {{end}}
 
+{{define "if"}}
+    {{.Init}}
+    if {{.Cond}} {
+    goto __Then{{.If}}
+    } else {
+    goto __Else{{.If}}
+    }
+    __Then{{.If}}:
+    {{.Body}}
+    goto __After{{.If}}
+    __Else{{.If}}:
+    {{.Else}}
+    goto __After{{.If}}
+    __After{{.If}}:
+{{end}}
 
 {{define "forever"}}
-    __Head{{.Loop}}:
+__Head{{.Loop}}:
     {{.Body}}
     goto __Head{{.Loop}}
+__After{{.Loop}}:
 {{end}}
 
 {{define "for"}}
@@ -68,31 +84,19 @@ __Head{{.Loop}}:
     }
 __Body{{.Loop}}:
     {{.Body}}
+__Continue{{.Loop}}:
     {{.Post}}
     goto __Head{{.Loop}}
 __Exit{{.Loop}}:
 {{end}}
 
-{{define "if"}}
-    {{.Init}}
-    if {{.Cond}} {
-        goto __Then{{.If}}
-    } else {
-        goto __Else{{.If}}
-    }
-__Then{{.If}}:
-    {{.Body}}
-    goto __After{{.If}}
-__Else{{.If}}:
-    {{.Else}}
-    goto __After{{.If}}
-__After{{.If}}:
-{{end}}
+
 
 {{define "for-range-map"}}
     {{.Adapter}} = gengen.NewMapAdapter[{{.KeyType}}, {{.ValueType}}]({{.Map}})
 
 __Head{{.Id}}:
+__Continue{{.Id}}:
     if {{.Adapter}}.Next() {
         goto __Body{{.Id}}
     } else {
@@ -108,7 +112,8 @@ __After{{.Id}}:
 {{define "for-range-slice"}}
     {{.Adapter}} = gengen.NewSliceAdapter[{{.ValueType}}]({{.Slice}})
 
-    __Head{{.Id}}:
+__Head{{.Id}}:
+__Continue{{.Id}}:
     if {{.Adapter}}.Next() {
     goto __Body{{.Id}}
     } else {
