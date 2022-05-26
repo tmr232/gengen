@@ -93,7 +93,7 @@ type FuncWizard struct {
 	jumpId      int
 	adapterId   int
 	extraState  []string
-	loopStack   []int
+	loopStack   []LoopFrame
 }
 
 type Namer struct {
@@ -231,34 +231,37 @@ func (wiz *FuncWizard) VisitReturnStmt(node *ast.ReturnStmt) string {
 	return string(returnStatement)
 }
 func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
-	object := wiz.pkg.TypesInfo.Uses[node.Fun.(*ast.SelectorExpr).Sel]
-	if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
-		// Yield only accepts one argument
-		if len(node.Args) != 1 {
-			log.Fatal("Yield accepts a single argument.")
-		}
-		var yieldValue bytes.Buffer
-		format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
+	switch fun := node.Fun.(type) {
+	case *ast.SelectorExpr:
+		object := wiz.pkg.TypesInfo.Uses[fun.Sel]
+		if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
+			// Yield only accepts one argument
+			if len(node.Args) != 1 {
+				log.Fatal("Yield accepts a single argument.")
+			}
+			var yieldValue bytes.Buffer
+			format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
 
-		yield, err := wiz.Render("yield", struct {
-			YieldValue string
-			Next       int
-		}{
-			YieldValue: yieldValue.String(),
-			Next:       wiz.NextIndex(),
-		})
-		if err != nil {
-			log.Fatal(err)
+			yield, err := wiz.Render("yield", struct {
+				YieldValue string
+				Next       int
+			}{
+				YieldValue: yieldValue.String(),
+				Next:       wiz.NextIndex(),
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+			return string(yield)
+		} else {
+			args := make([]string, len(node.Args))
+			for i := range args {
+				args[i] = wiz.convertAst(node.Args[i])
+			}
+			return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
 		}
-		return string(yield)
-	} else {
-		args := make([]string, len(node.Args))
-		for i := range args {
-			args[i] = wiz.convertAst(node.Args[i])
-		}
-		return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
 	}
-
+	return wiz.Unsupported(node)
 }
 func (wiz *FuncWizard) VisitExprStmt(node *ast.ExprStmt) string {
 	return wiz.convertAst(node.X)
@@ -308,14 +311,13 @@ func (wiz *FuncWizard) VisitBasicLit(node *ast.BasicLit) string {
 
 func (wiz *FuncWizard) VisitForStmt(node *ast.ForStmt) string {
 	// Easiest case is a forever
-	loopId := wiz.EnterLoop()
-	defer wiz.ExitLoop()
+	defer wiz.EnterLoop().ExitLoop()
 	if node.Init == nil && node.Cond == nil && node.Post == nil {
 		body := wiz.convertAst(node.Body)
 		loop, err := wiz.Render("forever", struct {
-			Loop int
+			Loop LoopFrame
 			Body string
-		}{Loop: loopId, Body: body})
+		}{Loop: *wiz.GetLoopFrame(), Body: body})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -331,13 +333,13 @@ func (wiz *FuncWizard) VisitForStmt(node *ast.ForStmt) string {
 			Cond string
 			Post string
 			Body string
-			Loop int
+			Loop LoopFrame
 		}{
 			Init: init,
 			Cond: cond,
 			Post: post,
 			Body: body,
-			Loop: loopId,
+			Loop: *wiz.GetLoopFrame(),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -388,8 +390,7 @@ func (wiz *FuncWizard) VisitIfStmt(node *ast.IfStmt) string {
 }
 func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 	rangeType := wiz.pkg.TypesInfo.TypeOf(node.X)
-	loopId := wiz.EnterLoop()
-	defer wiz.ExitLoop()
+	defer wiz.EnterLoop().ExitLoop()
 	switch rangeType := rangeType.(type) {
 	case *types.Map:
 		x := wiz.convertAst(node.X)
@@ -416,7 +417,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			Value     string
 			ValueType string
 			Map       string
-			Id        int
+			Loop      LoopFrame
 			Body      string
 		}{
 			Adapter:   adapterName,
@@ -425,7 +426,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			Value:     value,
 			ValueType: valueType.String(),
 			Map:       x,
-			Id:        loopId,
+			Loop:      *wiz.GetLoopFrame(),
 			Body:      body,
 		})
 		if err != nil {
@@ -456,7 +457,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			Value     string
 			ValueType string
 			Slice     string
-			Id        int
+			Loop      LoopFrame
 			Body      string
 		}{
 			Adapter:   adapterName,
@@ -465,7 +466,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			Value:     value,
 			ValueType: valueType.String(),
 			Slice:     x,
-			Id:        loopId,
+			Loop:      *wiz.GetLoopFrame(),
 			Body:      body,
 		})
 		if err != nil {
@@ -496,7 +497,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			Value     string
 			ValueType string
 			Slice     string
-			Id        int
+			Loop      LoopFrame
 			Body      string
 		}{
 			Adapter:   adapterName,
@@ -505,7 +506,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			Value:     value,
 			ValueType: valueType.String(),
 			Slice:     x,
-			Id:        loopId,
+			Loop:      *wiz.GetLoopFrame(),
 			Body:      body,
 		})
 		if err != nil {
@@ -532,8 +533,10 @@ func (wiz *FuncWizard) VisitBranchStmt(node *ast.BranchStmt) string {
 	}
 	switch node.Tok {
 	case token.BREAK:
+		wiz.UseBreak()
 		return fmt.Sprintf("goto __After%d", wiz.GetLoopId())
 	case token.CONTINUE:
+		wiz.UseContinue()
 		return fmt.Sprintf("goto __Continue%d", wiz.GetLoopId())
 	}
 	return wiz.Unsupported(node)
@@ -552,15 +555,31 @@ func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	}
 }
 
+func (wiz *FuncWizard) GetLoopFrame() *LoopFrame {
+	return &wiz.loopStack[len(wiz.loopStack)-1]
+}
 func (wiz *FuncWizard) GetLoopId() int {
-	return wiz.loopStack[len(wiz.loopStack)-1]
+	return wiz.GetLoopFrame().Id
 }
 
-func (wiz *FuncWizard) EnterLoop() int {
+func (wiz *FuncWizard) UseContinue() {
+	wiz.GetLoopFrame().HasContinue = true
+}
+func (wiz *FuncWizard) UseBreak() {
+	wiz.GetLoopFrame().HasBreak = true
+}
+
+type LoopFrame struct {
+	Id          int
+	HasContinue bool
+	HasBreak    bool
+}
+
+func (wiz *FuncWizard) EnterLoop() *FuncWizard {
 	wiz.jumpId++
 	loopId := wiz.jumpId
-	wiz.loopStack = append(wiz.loopStack, loopId)
-	return loopId
+	wiz.loopStack = append(wiz.loopStack, LoopFrame{Id: loopId})
+	return wiz
 }
 
 func (wiz *FuncWizard) ExitLoop() {

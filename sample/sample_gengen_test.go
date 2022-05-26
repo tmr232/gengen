@@ -103,25 +103,24 @@ func TestIf(t *testing.T) {
 
 }
 
-func TestIterMapKeys(t *testing.T) {
+func TestIterIntSlice(t *testing.T) {
 	tests := []struct {
 		name  string
-		input map[int]string
+		input []int
 		want  []int
 	}{
-		{"empty", map[int]string{}, nil},
-		{"single", map[int]string{1: "a"}, []int{1}},
-		{"multiple", map[int]string{1: "a", 2: "b"}, []int{1, 2}},
+		{"empty", []int{}, nil},
+		{"single", []int{1}, []int{1}},
+		{"multiple", []int{5, 3}, []int{5, 3}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ToSlice[int](IterMapKeys(tt.input)); !reflect.DeepEqual(got, tt.want) {
+			if got := ToSlice[int](IterIntSlice(tt.input)); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
-
 func TestIterMapValues(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -143,19 +142,44 @@ func TestIterMapValues(t *testing.T) {
 	}
 }
 
-func TestIterIntSlice(t *testing.T) {
+func TestIterMapKeys(t *testing.T) {
 	tests := []struct {
 		name  string
-		input []int
+		input map[int]string
 		want  []int
 	}{
-		{"empty", []int{}, nil},
-		{"single", []int{1}, []int{1}},
-		{"multiple", []int{5, 3}, []int{5, 3}},
+		{"empty", map[int]string{}, nil},
+		{"single", map[int]string{1: "a"}, []int{1}},
+		{"multiple", map[int]string{1: "a", 2: "b"}, []int{1, 2}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ToSlice[int](IterIntSlice(tt.input)); !reflect.DeepEqual(got, tt.want) {
+			if got := ToSlice[int](IterMapKeys(tt.input)); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTakeIntFromSlice(t *testing.T) {
+	type Args struct {
+		slice []int
+		n     int
+	}
+	tests := []struct {
+		name string
+		args Args
+		want []int
+	}{
+		{"empty", Args{[]int{}, 0}, nil},
+		{"1 item", Args{[]int{1, 2, 3, 4}, 1}, []int{1}},
+		{"2 items", Args{[]int{1, 2, 3, 4}, 2}, []int{1, 2}},
+		{"all items", Args{[]int{1, 2, 3, 4}, 4}, []int{1, 2, 3, 4}},
+		{"more than len", Args{[]int{1, 2, 3, 4}, 5}, []int{1, 2, 3, 4}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice[int](TakeIntFromSlice(tt.args.slice, tt.args.n)); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got = %v, want %v", got, tt.want)
 			}
 		})

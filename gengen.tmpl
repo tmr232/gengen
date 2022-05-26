@@ -68,26 +68,33 @@
 {{end}}
 
 {{define "forever"}}
-__Head{{.Loop}}:
+__Head{{.Loop.Id}}:
+{{if .Loop.HasContinue}}
+    __Continue{{.Loop.Id}}:
+{{end}}
     {{.Body}}
-    goto __Head{{.Loop}}
-__After{{.Loop}}:
+    goto __Head{{.Loop.Id}}
+{{if .Loop.HasBreak}}
+__After{{.Loop.Id}}:
+{{end}}
 {{end}}
 
 {{define "for"}}
     {{.Init}}
-__Head{{.Loop}}:
+__Head{{.Loop.Id}}:
     if {{.Cond}} {
-        goto __Body{{.Loop}}
+        goto __Body{{.Loop.Id}}
     } else {
-        goto __Exit{{.Loop}}
+        goto __After{{.Loop.Id}}
     }
-__Body{{.Loop}}:
+__Body{{.Loop.Id}}:
     {{.Body}}
-__Continue{{.Loop}}:
+    {{if .Loop.HasContinue}}
+__Continue{{.Loop.Id}}:
+    {{end}}
     {{.Post}}
-    goto __Head{{.Loop}}
-__Exit{{.Loop}}:
+    goto __Head{{.Loop.Id}}
+__After{{.Loop.Id}}:
 {{end}}
 
 
@@ -95,35 +102,39 @@ __Exit{{.Loop}}:
 {{define "for-range-map"}}
     {{.Adapter}} = gengen.NewMapAdapter[{{.KeyType}}, {{.ValueType}}]({{.Map}})
 
-__Head{{.Id}}:
-__Continue{{.Id}}:
+__Head{{.Loop.Id}}:
+    {{if .Loop.HasContinue}}
+__Continue{{.Loop.Id}}:
+    {{end}}
     if {{.Adapter}}.Next() {
-        goto __Body{{.Id}}
+        goto __Body{{.Loop.Id}}
     } else {
-        goto __After{{.Id}}
+        goto __After{{.Loop.Id}}
     }
-__Body{{.Id}}:
+__Body{{.Loop.Id}}:
     {{.Key}}, {{.Value}} = {{.Adapter}}.Value()
     {{.Body}}
-    goto __Head{{.Id}}
-__After{{.Id}}:
+    goto __Head{{.Loop.Id}}
+__After{{.Loop.Id}}:
 {{end}}
 
 {{define "for-range-slice"}}
     {{.Adapter}} = gengen.NewSliceAdapter[{{.ValueType}}]({{.Slice}})
 
-__Head{{.Id}}:
-__Continue{{.Id}}:
+__Head{{.Loop.Id}}:
+    {{if .Loop.HasContinue}}
+__Continue{{.Loop.Id}}:
+    {{end}}
     if {{.Adapter}}.Next() {
-    goto __Body{{.Id}}
+    goto __Body{{.Loop.Id}}
     } else {
-    goto __After{{.Id}}
+    goto __After{{.Loop.Id}}
     }
-    __Body{{.Id}}:
+    __Body{{.Loop.Id}}:
     {{.Key}}, {{.Value}} = {{.Adapter}}.Value()
     {{.Body}}
-    goto __Head{{.Id}}
-    __After{{.Id}}:
+    goto __Head{{.Loop.Id}}
+    __After{{.Loop.Id}}:
 {{end}}
 
 {{define "next"}}
