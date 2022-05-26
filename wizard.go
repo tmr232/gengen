@@ -231,8 +231,7 @@ func (wiz *FuncWizard) VisitReturnStmt(node *ast.ReturnStmt) string {
 	return string(returnStatement)
 }
 func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
-	switch fun := node.Fun.(type) {
-	case *ast.SelectorExpr:
+	if fun, isSelectorExpr := node.Fun.(*ast.SelectorExpr); isSelectorExpr {
 		object := wiz.pkg.TypesInfo.Uses[fun.Sel]
 		if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
 			// Yield only accepts one argument
@@ -253,15 +252,14 @@ func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
 				log.Fatal(err)
 			}
 			return string(yield)
-		} else {
-			args := make([]string, len(node.Args))
-			for i := range args {
-				args[i] = wiz.convertAst(node.Args[i])
-			}
-			return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
 		}
 	}
-	return wiz.Unsupported(node)
+	args := make([]string, len(node.Args))
+	for i := range args {
+		args[i] = wiz.convertAst(node.Args[i])
+	}
+	return wiz.convertAst(node.Fun) + "(" + strings.Join(args, ", ") + ")"
+
 }
 func (wiz *FuncWizard) VisitExprStmt(node *ast.ExprStmt) string {
 	return wiz.convertAst(node.X)
@@ -277,6 +275,9 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 		return wiz.DefineVariable(definition)
 	}
 	usage, exists := wiz.pkg.TypesInfo.Uses[node]
+	if _, isBuiltin := usage.(*types.Builtin); isBuiltin {
+		return node.String()
+	}
 	if exists && usage.Pkg().Path() == wiz.pkg.PkgPath {
 		return wiz.GetVariable(usage)
 	}

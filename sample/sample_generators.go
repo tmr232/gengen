@@ -65,7 +65,7 @@ func IterMapKeys(dict map[int]string) gengen.Generator[int] {
 }
 
 func TakeIntFromSlice(slice []int, n int) gengen.Generator[int] {
-	for i := 0; i < n; i++ {
+	for i := 0; i < n && i < len(slice); i++ {
 		gengen.Yield(slice[i])
 	}
 	return nil
