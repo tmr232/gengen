@@ -37,7 +37,6 @@ func GenericVisit[T any](v GenericAstVisitor[T], node ast.Node) func() T {
 	visitorValue := reflect.ValueOf(v)
 	methodValue := visitorValue.MethodByName("Visit" + nodeType.Elem().Name())
 	if methodValue == *new(reflect.Value) {
-		//log.Fatalf("Method not found: %s", "Visit"+nodeType.Elem().Name())
 		return nil
 	}
 
