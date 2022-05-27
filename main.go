@@ -7,12 +7,40 @@ import (
 	"github.com/tmr232/gengen/gengen"
 	"go/ast"
 	"go/format"
+	"go/types"
 	"golang.org/x/tools/go/packages"
 	"io/ioutil"
 	"log"
 	"path"
+	"reflect"
 	"strings"
 )
+
+type TypeInfo struct {
+	PkgPath string
+	Name    string
+}
+
+func (t TypeInfo) String() string {
+	return fmt.Sprintf("%s.%s", t.PkgPath, t.Name)
+}
+
+var GeneratorType TypeInfo
+var YieldType TypeInfo
+
+func init() {
+	generatorType := reflect.TypeOf(new(gengen.Generator[struct{}])).Elem()
+	name, _, _ := strings.Cut(generatorType.Name(), "[")
+	GeneratorType = TypeInfo{
+		PkgPath: generatorType.PkgPath(),
+		Name:    name,
+	}
+
+	YieldType = TypeInfo{
+		PkgPath: GeneratorType.PkgPath,
+		Name:    "Yield",
+	}
+}
 
 type generatorDecls struct {
 	// pkg is the package we're generating generators for
@@ -54,14 +82,17 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 					if len(results.List) != 1 {
 						continue
 					}
-
-					// TODO: Use proper type information here.
-					if !strings.HasPrefix(
-						pkg.TypesInfo.Types[results.List[0].Type].Type.String(),
-						"github.com/tmr232/gengen/gengen.Generator[",
+					namedType, isNamed := pkg.TypesInfo.Types[results.List[0].Type].Type.(*types.Named)
+					if !isNamed || !strings.HasPrefix(
+						namedType.Origin().String(),
+						GeneratorType.String()+"[T any]",
 					) {
 						continue
 					}
+
+					// TODO: Look for `gengen.Yield` to decide if this is a generator or not.
+					//		 Either via scopes, or traversing usage in the entire function.
+
 					decls = append(decls, decl)
 				}
 			}

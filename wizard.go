@@ -66,16 +66,16 @@ func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
 }
 func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
 	var functions []string
-	pkg := generatorDecl.pkg
-	fset := pkg.Fset
-	for id, obj := range pkg.TypesInfo.Defs {
-		fmt.Printf("%s: %q defines %v\n",
-			fset.Position(id.Pos()), id.Name, obj)
-	}
-	for id, obj := range pkg.TypesInfo.Uses {
-		fmt.Printf("%s: %q uses %v\n",
-			fset.Position(id.Pos()), id.Name, obj)
-	}
+	//pkg := generatorDecl.pkg
+	//fset := pkg.Fset
+	//for id, obj := range pkg.TypesInfo.Defs {
+	//	fmt.Printf("%s: %q defines %v\n",
+	//		fset.Position(id.Pos()), id.Name, obj)
+	//}
+	//for id, obj := range pkg.TypesInfo.Uses {
+	//	fmt.Printf("%s: %q uses %v\n",
+	//		fset.Position(id.Pos()), id.Name, obj)
+	//}
 	for _, fdecl := range generatorDecl.decls {
 		f := wiz.WithFunction(fdecl).convertFunction()
 		functions = append(functions, string(f))
@@ -233,7 +233,8 @@ func (wiz *FuncWizard) VisitReturnStmt(node *ast.ReturnStmt) string {
 func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
 	if fun, isSelectorExpr := node.Fun.(*ast.SelectorExpr); isSelectorExpr {
 		object := wiz.pkg.TypesInfo.Uses[fun.Sel]
-		if object.String() == "func github.com/tmr232/gengen/gengen.Yield(value any)" {
+		funcObject, isFunc := object.(*types.Func)
+		if isFunc && funcObject.FullName() == YieldType.String() {
 			// Yield only accepts one argument
 			if len(node.Args) != 1 {
 				log.Fatal("Yield accepts a single argument.")
