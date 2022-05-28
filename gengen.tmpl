@@ -32,6 +32,9 @@
                 {{template "next" 0}}:
 
                 {{.Body}}
+{{/*                This is a terrible hack. It is here to ensure we return even if we have
+                    a Yield after a return.*/}}
+                return
             },
         }
     }

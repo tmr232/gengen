@@ -24,9 +24,11 @@ func Range(stop int) gengen.Generator[int] {
 
 func Empty() gengen.Generator[string] {
 	return nil
+	gengen.Yield("")
 }
 func EmptyWithError() gengen.Generator[int] {
 	return SomeGenError{}
+	gengen.Yield(0)
 }
 
 func Yield() gengen.Generator[int] {

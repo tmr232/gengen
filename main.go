@@ -49,6 +49,31 @@ type generatorDecls struct {
 	decls []*ast.FuncDecl
 }
 
+type IsGenVisitor struct {
+	hasYield *bool
+	pkg      *packages.Package
+}
+
+func (v *IsGenVisitor) Visit(n ast.Node) ast.Visitor {
+	if *v.hasYield {
+		// Already found a yield - no need to keep looking!
+		return nil
+	}
+	if ident, isIdent := n.(*ast.Ident); isIdent {
+		object, exists := v.pkg.TypesInfo.Uses[ident]
+		if exists && object.Pkg() != nil {
+			*v.hasYield = object.Pkg().Path() == YieldType.PkgPath && object.Name() == YieldType.Name
+		}
+		return nil
+	}
+	return v
+}
+
+func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
+	visitor := &IsGenVisitor{&result, pkg}
+	ast.Walk(visitor, fdecl)
+	return
+}
 func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	cfg := &packages.Config{
 		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax | packages.NeedName | packages.NeedImports,
@@ -92,6 +117,9 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 
 					// TODO: Look for `gengen.Yield` to decide if this is a generator or not.
 					//		 Either via scopes, or traversing usage in the entire function.
+					if !IsGenerator(pkg, decl) {
+						continue
+					}
 
 					decls = append(decls, decl)
 				}
