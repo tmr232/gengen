@@ -3,8 +3,10 @@
 package sample
 
 import (
-	"github.com/tmr232/gengen/gengen"
+	"github.com/tmr232/gengen"
 )
+
+//go:generate go run github.com/tmr232/gengen/cmd/gengen
 
 func Fibonacci() gengen.Generator[int] {
 	a := 1

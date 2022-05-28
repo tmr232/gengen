@@ -4,7 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"github.com/tmr232/gengen/gengen"
+	"github.com/tmr232/gengen"
 	"go/ast"
 	"go/format"
 	"go/types"
@@ -219,7 +219,7 @@ func FindUsedImports(genDef generatorDecls) map[string]bool {
 }
 
 func main() {
-	dir := "./sample"
+	dir := "."
 	buildTag := "gengen"
 
 	generatorDefs := getGeneratorDefinitions(dir, []string{buildTag})

@@ -1,7 +1,7 @@
 package sample
 
 import (
-	"github.com/tmr232/gengen/gengen"
+	"github.com/tmr232/gengen"
 	"reflect"
 	"sort"
 	"testing"
