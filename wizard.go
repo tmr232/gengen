@@ -83,6 +83,10 @@ func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
 	return functions
 }
 
+type Block struct {
+	seenReturn bool
+}
+
 type FuncWizard struct {
 	PkgWizard
 	fdecl       *ast.FuncDecl
@@ -94,6 +98,23 @@ type FuncWizard struct {
 	adapterId   int
 	extraState  []string
 	loopStack   []LoopFrame
+	blockStack  []Block
+}
+
+func (wiz *FuncWizard) EnterBlock() *FuncWizard {
+	wiz.blockStack = append(wiz.blockStack, Block{})
+	return wiz
+}
+
+func (wiz *FuncWizard) LeaveBlock() {
+	wiz.blockStack = wiz.blockStack[:len(wiz.blockStack)-1]
+}
+
+func (wiz *FuncWizard) MarkReturn() {
+	wiz.blockStack[len(wiz.blockStack)-1].seenReturn = true
+}
+func (wiz *FuncWizard) AfterReturn() bool {
+	return wiz.blockStack[len(wiz.blockStack)-1].seenReturn
 }
 
 type Namer struct {
@@ -146,7 +167,8 @@ func (wiz *FuncWizard) NextIndex() int {
 }
 
 func (wiz *FuncWizard) convertFunction() []byte {
-
+	// A function is a block too :)
+	defer wiz.EnterBlock().LeaveBlock()
 	var out bytes.Buffer
 	format.Node(&out, wiz.pkg.Fset, wiz.fdecl.Type)
 	signature := out.String()
@@ -228,6 +250,7 @@ func (wiz *FuncWizard) VisitReturnStmt(node *ast.ReturnStmt) string {
 	if err != nil {
 		log.Fatal(err)
 	}
+	wiz.MarkReturn()
 	return string(returnStatement)
 }
 func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
@@ -235,6 +258,10 @@ func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
 		object := wiz.pkg.TypesInfo.Uses[fun.Sel]
 		funcObject, isFunc := object.(*types.Func)
 		if isFunc && funcObject.FullName() == YieldType.String() {
+			// If we're after a return statement, we ignore this yield.
+			if wiz.AfterReturn() {
+				return ""
+			}
 			// Yield only accepts one argument
 			if len(node.Args) != 1 {
 				log.Fatal("Yield accepts a single argument.")
@@ -350,6 +377,7 @@ func (wiz *FuncWizard) VisitForStmt(node *ast.ForStmt) string {
 	}
 }
 func (wiz *FuncWizard) VisitBlockStmt(node *ast.BlockStmt) string {
+	defer wiz.EnterBlock().LeaveBlock()
 	block := make([]string, len(node.List))
 	for i, stmt := range node.List {
 		block[i] = wiz.convertAst(stmt)
