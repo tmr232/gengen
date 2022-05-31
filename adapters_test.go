@@ -5,9 +5,16 @@ import (
 	"testing"
 )
 
-func ToSlice[T any](gen Generator[T]) (slice []T) {
+func First[First, Second any](first First, _ Second) First {
+	return first
+}
+func Second[First, Second any](_ First, second Second) Second {
+	return second
+}
+
+func ToSlice[Index, Value any](gen Generator2[Index, Value]) (slice []Value) {
 	for gen.Next() {
-		slice = append(slice, gen.Value())
+		slice = append(slice, Second(gen.Value()))
 	}
 	// TODO: Handle errors.
 	return
@@ -34,7 +41,7 @@ func TestNewSliceAdapter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ToSlice[int](NewSliceAdapter(tt.want)); !reflect.DeepEqual(got, tt.want) {
+			if got := ToSlice[int, int](NewSliceAdapter(tt.want)); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got = %v, want %v", got, tt.want)
 			}
 		})

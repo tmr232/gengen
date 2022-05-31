@@ -5,6 +5,15 @@ type SliceAdapter[T any] struct {
 	index int
 }
 
+type Pair[First, Second any] struct {
+	first  First
+	second Second
+}
+
+func NewPair[First, Second any](first First, second Second) *Pair[First, Second] {
+	return &Pair[First, Second]{first: first, second: second}
+}
+
 func NewSliceAdapter[T any](slice []T) *SliceAdapter[T] {
 	return &SliceAdapter[T]{slice: slice, index: -1}
 }
@@ -20,15 +29,6 @@ func (s *SliceAdapter[T]) Value() (int, T) {
 
 func (s *SliceAdapter[T]) Error() error {
 	return nil
-}
-
-type Pair[First, Second any] struct {
-	first  First
-	second Second
-}
-
-func NewPair[First, Second any](first First, second Second) *Pair[First, Second] {
-	return &Pair[First, Second]{first: first, second: second}
 }
 
 type MapAdapter[K comparable, V any] struct {

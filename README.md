@@ -1,6 +1,9 @@
 # gengen
 Generating Generators!
 
+## Usage
+
+
 
 ## Ideas
 
