@@ -180,6 +180,125 @@ This allows both humans and machine to be happy.
 
 ----------
 
+The current style is discovery-based and not planning-based.
+I think it should be more planned than discovered.
+
+We can start with Python generators, and the way they use `yield` and exceptions.
+Then we discuss Go's syntactical limitations, and the lack of exceptions,
+to come up with a suitable syntax.
+We must also remember that there's a need to stop a generator. Python uses `return`.
+
+This leads us to using a function to emulate `yield`,
+and using `return` to terminate iteration.
+
+Then we need to cover errors.
+In Python we have `raise` and we can just use exceptions.
+Go doesn't have exceptions, so we need a different method.
+Luckily, we still have that `return`, which is a great channel for that.
+
+Now we're using a function for `yield` and `return nil` to just return,
+`return err` to "raise" an error.
+
+
+Now for the return type.
+Generators return generator objects, so we need to return one here as well.
+This means that we return `Generator[T]`. Great.
+We also describe the interface at this point and the usage.
+This sadly deviates from the `range` iteration pattern, but we can't help it.
+
+Now things seem to be conflicting.
+We want to return a generator object, but we also want to return an error.
+
+One option is to use `error` when we write the code, and `Generator[T]` 
+in the generated code.
+But this means that we can't clearly see the type when we look at our code.
+We can do better.
+We'll get to that later.
+
+In the meantime, we have a bigger issue - we need to name the generated functions.
+One way would be to namespace them. Either with a prefix/suffix, or with a new package.
+Both of these options are problematic.
+If the generators are in a new package, they won't have access to the same variables.
+If we use a prefix/suffix, everything works, but we are forced to see that new name everywhere.
+It is both ugly and confusing.
+
+Luckily, Go has build tags.
+If we put one build tag in the handwritten code, and the inverse of it in the generated code, 
+we have a strong guarantee that there will be no conflicts.
+Just need to make sure that what actually compiles is the generated code.
+
+With that done - it's back to the type conflict.
+But now, with build tags, we can solve it too!
+In the handwritten code, it is an error type.
+In the generated code, it is a generator object.
+And because the handwritten code never executed, 
+we can pretend that the error type has the same interface.
+
+
+With the syntax decided, we need to go to the actual implementation - what is the structure of a generator?
+
+Here we need to discuss the 2 main parts of a generator - a function, and a state block.
+We can show a simple manual example - like Fibonacci - where there is only a single exit/entry.
+
+Once we're done with that example, seeing how things interact, we need to show a more complex example.
+Funnily enough, yielding consecutive values is a much more difficult one to pull off.
+It also makes it clear that we need to know which line to get to.
+
+We can show a hacky solution around that as well, and then show a more complex one so that the audience will
+understand that it is only going to get harder to manage it manually with hacks.
+
+Then we introduce goto. Using goto, with no blocks, we can jump to the relevant lines and execute them.
+We introduce the state mechanism, and how each `yield` sets the next entry point.
+
+Then we add actual flow control, and run into issues - `goto` is limited.
+It can't jump into blocks, can't jump over variable declarations (need refs here)(probably to start with blocks, and get
+to vars later as it is a completely different solution)
+
+This is where we introduce assembly-like flow-control, and "flatten" all the blocks. 
+It is important to note that we _are_ allowed to have blocks, just not to jump into them.
+So we use `if` blocks for all flow control.
+
+Once we go through `if`, we need to introduce new concepts.
+An infinite `for` is possible, but for everything else - we need more.
+
+- c-style loops require variables
+- range-style loops require adapters
+
+So we go with an infinite loop and implement fibonacci.
+Then we need to discuss the issues with variables, and how we must 
+define them all ahead of time. We can also bring up the variable-name-conflict issue.
+But that might be better later, if we have an actual example.
+
+With that, we have a working fibonacci generator, and we can use it.
+
+This introduces the most critical concepts. From now on, everything is a bit more optional.
+
+The first thing to introduce is more flow-control structures.
+If we want other loop types - we need to discuss `range`.
+Since `range` doesn't have an exposed state variable, we need to create one.
+We do that using a generator adapter.
+Those are different for slices (just an index), maps (convert to slice first),
+and chan (I guess I need an adapter that keeps taking values?).
+
+----------
+
+This is the core of the explanation. 
+Everything beyond that is implementation details.
+I need to see how long this all takes before deciding whether to delve deeper for Berlin.
+
+----------
+
+Then there are a few more things to cover:
+
+- Cool examples to get everyone excited, comparing the generator code to what you'd have to write otherwise
+- Benchmarks 
+- Future directions, known issues or missing features
+- A short pitch for needing generators + iteration protocol in the language
+- LIVE DEMO! If I can start a brand-new project, write a generator, run the tool and show it executing
+  it'd be absolutely awesome.
+
+----------
+
 ## Ideas
 
 Actually, multi-result generators are perfectly possible.
