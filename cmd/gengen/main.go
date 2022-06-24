@@ -237,7 +237,7 @@ func main() {
 
 	for _, genDef := range generatorDefs {
 		finalImports := CollectUsedImports(genDef)
-		functions := wiz.WithPackage(genDef.pkg).convertFunctions(genDef)
+		functions := wiz.WithPackage(genDef.pkg, finalImports).convertFunctions(genDef)
 		src, err := wiz.Render("package",
 			struct {
 				PackageName string

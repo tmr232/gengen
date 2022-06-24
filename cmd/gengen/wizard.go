@@ -34,10 +34,27 @@ func NewWizard() *Wizard {
 	return &Wizard{template: t}
 }
 
-func (wiz *Wizard) WithPackage(pkg *packages.Package) *PkgWizard {
+func createImportNameMapping(imports Imports) map[string]string {
+	mapping := make(map[string]string)
+	for _, importLine := range imports {
+		packagePath := strings.Trim(importLine.Path, "\"")
+		if importLine.Name != nil {
+			mapping[packagePath] = *importLine.Name
+		} else {
+			parts := strings.Split(packagePath, "/")
+			name := parts[len(parts)-1]
+			mapping[packagePath] = name
+		}
+	}
+	fmt.Println(mapping)
+	return mapping
+}
+
+func (wiz *Wizard) WithPackage(pkg *packages.Package, imports Imports) *PkgWizard {
 	return &PkgWizard{
-		Wizard: *wiz,
-		pkg:    pkg,
+		Wizard:  *wiz,
+		pkg:     pkg,
+		imports: createImportNameMapping(imports),
 	}
 }
 func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
@@ -52,7 +69,8 @@ func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
 
 type PkgWizard struct {
 	Wizard
-	pkg *packages.Package
+	pkg     *packages.Package
+	imports map[string]string
 }
 
 func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
@@ -253,6 +271,10 @@ func (wiz *FuncWizard) getTypeName(typ types.Type) string {
 			// The type was defined in the same package, so we don't need to name the package
 			// it was imported from.
 			return namedType.Obj().Name()
+		}
+		packageName, exists := wiz.imports[namedType.Obj().Pkg().Path()]
+		if exists {
+			return fmt.Sprintf("%s.%s", packageName, namedType.Obj().Name())
 		}
 	}
 	return typ.String()
