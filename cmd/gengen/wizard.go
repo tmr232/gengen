@@ -139,6 +139,9 @@ func (wiz *FuncWizard) AddFunctionArgument(obj types.Object) {
 }
 
 func (wiz *FuncWizard) DefineVariable(obj types.Object) (name string) {
+	if obj.Name() == "_" {
+		return "_"
+	}
 	namer := Namer{name: obj.Name()}
 	for wiz.names[namer.Name()] {
 		namer.Next()
@@ -150,6 +153,9 @@ func (wiz *FuncWizard) DefineVariable(obj types.Object) (name string) {
 }
 
 func (wiz *FuncWizard) GetVariable(obj types.Object) (name string) {
+	if obj.Name() == "_" {
+		return "_"
+	}
 	return wiz.variables[obj]
 }
 
@@ -207,7 +213,18 @@ func (wiz *FuncWizard) convertFunction() []byte {
 	variables := make(map[string]string)
 
 	for obj, name := range wiz.definitions {
-		variables[name] = obj.Type().String()
+		var typename string
+		if namedType, isNamedType := obj.Type().(*types.Named); isNamedType {
+			if namedType.Obj().Pkg() == wiz.pkg.Types {
+				// The type was defined in the same package, so we don't need to name the package
+				// it was imported from.
+				typename = namedType.Obj().Name()
+			}
+		} else {
+			typename = obj.Type().String()
+		}
+
+		variables[name] = typename
 	}
 
 	src, err := wiz.Render("function", struct {
