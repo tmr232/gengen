@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/tmr232/gengen"
+	"github.com/tmr232/gengen/talk-samples/extrapackage"
 )
 
 //go:generate go run github.com/tmr232/gengen/cmd/gengen
@@ -16,4 +17,9 @@ func IterBooks(library Library) gengen.Generator[Book] {
 		}
 	}
 	return nil
+}
+
+func Nothing() gengen.Generator[extrapackage.Thing] {
+	return nil
+	gengen.Yield(extrapackage.Thing{})
 }
