@@ -536,8 +536,10 @@ func (wiz *FuncWizard) VisitUnaryExpr(node *ast.UnaryExpr) string {
 	return node.Op.String() + wiz.convertAst(node.X)
 }
 func (wiz *FuncWizard) VisitSelectorExpr(node *ast.SelectorExpr) string {
-
-	expr := wiz.convertAst(node.X) + "." + wiz.convertAst(node.Sel)
+	// The selector is always an ast.Ident, so we just take the name.
+	// We cannot use the VisitIdent method as the selector does not represent a variable,
+	// only an identifier.
+	expr := wiz.convertAst(node.X) + "." + node.Sel.Name
 	return expr
 }
 func (wiz *FuncWizard) VisitBranchStmt(node *ast.BranchStmt) string {
