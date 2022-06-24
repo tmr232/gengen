@@ -184,8 +184,13 @@ func (wiz *FuncWizard) convertFunction() []byte {
 		log.Fatalf("Expected a single result, got %d", len(wiz.fdecl.Type.Results.List))
 	}
 
-	_, returnType, _ := strings.Cut(wiz.pkg.TypesInfo.TypeOf(wiz.fdecl.Type.Results.List[0].Type).String(), "[")
-	returnType = strings.TrimSuffix(returnType, "]")
+	generatorType := wiz.pkg.TypesInfo.TypeOf(wiz.fdecl.Type.Results.List[0].Type)
+	namedType, isNamedType := generatorType.(*types.Named)
+	if !isNamedType {
+		panic("Generators only support named types.")
+	}
+	generatorItemType := namedType.TypeArgs().At(0)
+	returnType := wiz.getTypeName(generatorItemType)
 
 	//// We go through all the defs in the function,
 	//// and define the relevant variables.
