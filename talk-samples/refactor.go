@@ -65,26 +65,6 @@ func (it *LibraryBookIterator) Next() bool {
 	}
 
 	return true
-
-	//for {
-	//	if it.bookIndex < len(it.library.Rooms[it.roomIndex].Shelves[it.shelfIndex].Books) {
-	//		return true
-	//	}
-	//	it.bookIndex = 0
-	//
-	//	it.shelfIndex++
-	//	if it.shelfIndex < len(it.library.Rooms[it.roomIndex].Shelves) {
-	//		continue
-	//	}
-	//	it.shelfIndex = 0
-	//
-	//	it.roomIndex++
-	//	if it.roomIndex < len(it.library.Rooms) {
-	//		continue
-	//	}
-	//	return false
-	//}
-
 }
 
 func (it *LibraryBookIterator) Value() Book {
