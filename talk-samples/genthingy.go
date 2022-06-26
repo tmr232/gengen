@@ -7,6 +7,8 @@ import (
 	"github.com/tmr232/gengen/talk-samples/extrapackage"
 )
 
+func KindaUseless() {}
+
 //go:generate go run github.com/tmr232/gengen/cmd/gengen
 func IterBooks(library Library) gengen.Generator[Book] {
 	for _, room := range library.Rooms {
