@@ -149,10 +149,45 @@ func getFileImports(file *ast.File) Imports {
 	return imports
 }
 
-func main() {
-	dir := "."
-	tags := []string{"gengen"}
+func renderGeneratorFile(wiz *Wizard, pkg *packages.Package, file *ast.File) []byte {
+	pkgWiz := wiz.WithPackage(pkg, getFileImports(file))
 
+	out := bytes.Buffer{}
+
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
+		case *ast.File:
+			return true
+		case *ast.Ident:
+			// The only top-level ast.Ident node is the package name.
+			// There is no node for the package definition, so it's just a naked ast.Ident.
+			res, err := wiz.Render("package", struct{ PackageName string }{node.Name})
+			if err != nil {
+				log.Fatal("Failed to render package header.")
+			}
+			out.Write(res)
+			return false
+		case *ast.FuncDecl:
+			if IsGenerator(pkg, node) {
+				out.Write(pkgWiz.WithFunction(node).convertFunction())
+				out.WriteString("\n")
+			} else {
+				format.Node(&out, pkg.Fset, node)
+				out.WriteString("\n")
+			}
+			return false
+		default:
+			format.Node(&out, pkg.Fset, node)
+			out.WriteString("\n")
+			return false
+		}
+	})
+
+	src := formatSource(out.Bytes())
+	return src
+}
+
+func loadPackages(dir string, tags ...string) ([]*packages.Package, error) {
 	cfg := &packages.Config{
 		Mode:       packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax | packages.NeedName | packages.NeedImports,
 		Context:    nil,
@@ -170,6 +205,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	return pkgs, err
+}
+
+func main() {
+	dir := "."
+	buildTag := "gengen"
+
+	pkgs, err := loadPackages(dir, buildTag)
 
 	wiz := NewWizard()
 	if wiz == nil {
@@ -177,47 +220,13 @@ func main() {
 	}
 
 	for _, pkg := range pkgs {
-		// TODO: Get rid of the imports, as this is not where we generate them!
 		for _, file := range pkg.Syntax {
-			// Only copy & modify files that are generator source files.
 			if !isGeneratorSourceFile(file) {
+				// Only copy & modify files that are generator source files.
 				continue
 			}
 
-			pkgWiz := wiz.WithPackage(pkg, getFileImports(file))
-
-			out := bytes.Buffer{}
-
-			ast.Inspect(file, func(node ast.Node) bool {
-				switch node := node.(type) {
-				case *ast.File:
-					return true
-				case *ast.Ident:
-					// The only top-level ast.Ident node is the package name.
-					// There is no node for the package definition, so it's just a naked ast.Ident.
-					res, err := wiz.Render("package", struct{ PackageName string }{node.Name})
-					if err != nil {
-						log.Fatal("Failed to render package header.")
-					}
-					out.Write(res)
-					return false
-				case *ast.FuncDecl:
-					if IsGenerator(pkg, node) {
-						out.Write(pkgWiz.WithFunction(node).convertFunction())
-						out.WriteString("\n")
-					} else {
-						format.Node(&out, pkg.Fset, node)
-						out.WriteString("\n")
-					}
-					return false
-				default:
-					format.Node(&out, pkg.Fset, node)
-					out.WriteString("\n")
-					return false
-				}
-			})
-
-			src := formatSource(out.Bytes())
+			src := renderGeneratorFile(wiz, pkg, file)
 
 			filepath := strings.TrimSuffix(pkg.Fset.Position(file.Pos()).Filename, ".go") + "_gengen.go"
 			err = ioutil.WriteFile(filepath, src, 0644)
