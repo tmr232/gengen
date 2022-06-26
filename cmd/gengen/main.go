@@ -74,9 +74,23 @@ func (v *IsGenVisitor) Visit(n ast.Node) ast.Visitor {
 
 // IsGenerator checks if a given ast.FuncDecl is a generator definition.
 func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
+	results := fdecl.Type.Results
+	if results == nil || len(results.List) != 1 {
+		return false
+	}
+
+	// Ensure the return type is a gengen.Generator
+	namedType, isNamed := pkg.TypesInfo.Types[results.List[0].Type].Type.(*types.Named)
+	if !isNamed || namedType.Obj().Pkg().Path() != GeneratorType.PkgPath || namedType.Obj().Name() != GeneratorType.Name {
+
+		return false
+	}
+
+	// Check for usage of gengen.Yield. If it does not exist - the function
+	// may just be returning a generator.
 	visitor := &IsGenVisitor{&result, pkg}
 	ast.Walk(visitor, fdecl)
-	return
+	return result
 }
 func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	cfg := &packages.Config{
@@ -101,7 +115,7 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	for _, pkg := range pkgs {
 		var decls []*ast.FuncDecl
 		for _, f := range pkg.Syntax {
-			ast.Print(pkg.Fset, f)
+			//ast.Print(pkg.Fset, f)
 			/*
 				Since this works - the next thing to do is replace the current generation mechanism.
 				We need to visit the entire File AST.
