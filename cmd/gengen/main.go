@@ -54,21 +54,25 @@ type IsGenVisitor struct {
 	pkg      *packages.Package
 }
 
+// Visit checks if gengen.Yield is used inside the given AST.
+// It does that by checking if the code uses gengen.Yield in any way.
+// There are currently no checks as to how gengen.Yield is used.
 func (v *IsGenVisitor) Visit(n ast.Node) ast.Visitor {
 	if *v.hasYield {
 		// Already found a yield - no need to keep looking!
 		return nil
 	}
 	if ident, isIdent := n.(*ast.Ident); isIdent {
-		object, exists := v.pkg.TypesInfo.Uses[ident]
-		if exists && object.Pkg() != nil {
-			*v.hasYield = object.Pkg().Path() == YieldType.PkgPath && object.Name() == YieldType.Name
+		objectDefinition, exists := v.pkg.TypesInfo.Uses[ident]
+		if exists && objectDefinition.Pkg() != nil {
+			*v.hasYield = objectDefinition.Pkg().Path() == YieldType.PkgPath && objectDefinition.Name() == YieldType.Name
 		}
 		return nil
 	}
 	return v
 }
 
+// IsGenerator checks if a given ast.FuncDecl is a generator definition.
 func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
 	visitor := &IsGenVisitor{&result, pkg}
 	ast.Walk(visitor, fdecl)
@@ -97,6 +101,16 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 	for _, pkg := range pkgs {
 		var decls []*ast.FuncDecl
 		for _, f := range pkg.Syntax {
+			ast.Print(pkg.Fset, f)
+			/*
+				Since this works - the next thing to do is replace the current generation mechanism.
+				We need to visit the entire File AST.
+				If the file does generator-generation (probably best to check the build tag?)
+				we need to copy it over, and generate for it.
+				As fot the generation - we just visit the AST and print it.
+				If we encounter a function definition, we send it to our generator printer.
+				Otherwise - we format it as regular code.
+			*/
 			for _, decl := range f.Decls {
 				switch decl := decl.(type) {
 				case *ast.FuncDecl:
