@@ -82,24 +82,6 @@ func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
 		names:       make(map[string]bool),
 	}
 }
-func (wiz *PkgWizard) convertFunctions(generatorDecl generatorDecls) []string {
-	var functions []string
-	//pkg := generatorDecl.pkg
-	//fset := pkg.Fset
-	//for id, obj := range pkg.TypesInfo.Defs {
-	//	fmt.Printf("%s: %q defines %v\n",
-	//		fset.Position(id.Pos()), id.Name, obj)
-	//}
-	//for id, obj := range pkg.TypesInfo.Uses {
-	//	fmt.Printf("%s: %q uses %v\n",
-	//		fset.Position(id.Pos()), id.Name, obj)
-	//}
-	for _, fdecl := range generatorDecl.decls {
-		f := wiz.WithFunction(fdecl).convertFunction()
-		functions = append(functions, string(f))
-	}
-	return functions
-}
 
 type Block struct {
 	seenReturn bool
