@@ -46,7 +46,6 @@ func createImportNameMapping(imports Imports) map[string]string {
 			mapping[packagePath] = name
 		}
 	}
-	fmt.Println(mapping)
 	return mapping
 }
 
@@ -466,7 +465,6 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 			value = wiz.convertAst(node.Value)
 		}
 		body := wiz.convertAst(node.Body)
-		fmt.Println(key, value)
 		forLoop, err := wiz.Render("for-range-map", struct {
 			Adapter   string
 			Key       string
