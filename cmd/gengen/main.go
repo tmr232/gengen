@@ -219,7 +219,7 @@ func main() {
 
 			src := formatSource(out.Bytes())
 
-			filepath := pkg.Fset.Position(file.Pos()).Filename + "_gengen.go"
+			filepath := strings.TrimSuffix(pkg.Fset.Position(file.Pos()).Filename, ".go") + "_gengen.go"
 			err = ioutil.WriteFile(filepath, src, 0644)
 			if err != nil {
 				log.Fatalf("writing output: %s", err)
