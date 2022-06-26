@@ -128,23 +128,6 @@ func getGeneratorDefinitions(dir string, tags []string) []generatorDecls {
 			for _, decl := range f.Decls {
 				switch decl := decl.(type) {
 				case *ast.FuncDecl:
-					results := decl.Type.Results
-					if results == nil {
-						continue
-					}
-					if len(results.List) != 1 {
-						continue
-					}
-					namedType, isNamed := pkg.TypesInfo.Types[results.List[0].Type].Type.(*types.Named)
-					if !isNamed || !strings.HasPrefix(
-						namedType.Origin().String(),
-						GeneratorType.String()+"[T any]",
-					) {
-						continue
-					}
-
-					// TODO: Look for `gengen.Yield` to decide if this is a generator or not.
-					//		 Either via scopes, or traversing usage in the entire function.
 					if !IsGenerator(pkg, decl) {
 						continue
 					}
