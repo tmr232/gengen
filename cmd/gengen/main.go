@@ -41,34 +41,22 @@ func init() {
 	}
 }
 
-type generatorDecls struct {
-	// pkg is the package we're generating generators for
-	pkg *packages.Package
-	// decls are the declarations of all functions that return a generator.
-	decls []*ast.FuncDecl
-}
-
-type IsGenVisitor struct {
-	hasYield *bool
-	pkg      *packages.Package
-}
-
-// Visit checks if gengen.Yield is used inside the given AST.
-// It does that by checking if the code uses gengen.Yield in any way.
-// There are currently no checks as to how gengen.Yield is used.
-func (v *IsGenVisitor) Visit(n ast.Node) ast.Visitor {
-	if *v.hasYield {
-		// Already found a yield - no need to keep looking!
-		return nil
-	}
-	if ident, isIdent := n.(*ast.Ident); isIdent {
-		objectDefinition, exists := v.pkg.TypesInfo.Uses[ident]
-		if exists && objectDefinition.Pkg() != nil {
-			*v.hasYield = objectDefinition.Pkg().Path() == YieldType.PkgPath && objectDefinition.Name() == YieldType.Name
+func usesYield(pkg *packages.Package, node ast.Node) bool {
+	usesYield := false
+	ast.Inspect(node, func(node ast.Node) bool {
+		if usesYield {
+			return false
 		}
-		return nil
-	}
-	return v
+		if ident, isIdent := node.(*ast.Ident); isIdent {
+			objectDefinition, exists := pkg.TypesInfo.Uses[ident]
+			if exists && objectDefinition.Pkg() != nil {
+				usesYield = objectDefinition.Pkg().Path() == YieldType.PkgPath && objectDefinition.Name() == YieldType.Name
+			}
+			return false
+		}
+		return true
+	})
+	return usesYield
 }
 
 // IsGenerator checks if a given ast.FuncDecl is a generator definition.
@@ -87,9 +75,7 @@ func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
 
 	// Check for usage of gengen.Yield. If it does not exist - the function
 	// may just be returning a generator.
-	visitor := &IsGenVisitor{&result, pkg}
-	ast.Walk(visitor, fdecl)
-	return result
+	return usesYield(pkg, fdecl)
 }
 
 func formatSource(src []byte) []byte {
