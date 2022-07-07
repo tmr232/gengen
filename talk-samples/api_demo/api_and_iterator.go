@@ -85,7 +85,6 @@ func PrintThings() {
 func IterThings(client *ApiClient) gengen.Generator[Thing] {
 	var result Result
 	var err error
-	var x = 1
 	for {
 		result, err = client.GetThings(result.Next)
 		if err != nil {
@@ -98,7 +97,6 @@ func IterThings(client *ApiClient) gengen.Generator[Thing] {
 			break
 		}
 	}
-	fmt.Println(x)
 	return nil
 }
 
