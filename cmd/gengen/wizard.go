@@ -34,26 +34,33 @@ func NewWizard() *Wizard {
 	return &Wizard{template: t}
 }
 
-func createImportNameMapping(imports Imports) map[string]string {
+// Return a mapping between package paths and imports, and a set of all the import names
+func createImportNameMapping(imports Imports) (map[string]string, map[string]bool) {
 	mapping := make(map[string]string)
+	importNames := make(map[string]bool)
 	for _, importLine := range imports {
 		packagePath := strings.Trim(importLine.Path, "\"")
 		if importLine.Name != nil {
-			mapping[packagePath] = *importLine.Name
+			name := *importLine.Name
+			mapping[packagePath] = name
+			importNames[name] = true
 		} else {
 			parts := strings.Split(packagePath, "/")
 			name := parts[len(parts)-1]
 			mapping[packagePath] = name
+			importNames[name] = true
 		}
 	}
-	return mapping
+	return mapping, importNames
 }
 
 func (wiz *Wizard) WithPackage(pkg *packages.Package, imports Imports) *PkgWizard {
+	importMapping, importNames := createImportNameMapping(imports)
 	return &PkgWizard{
-		Wizard:  *wiz,
-		pkg:     pkg,
-		imports: createImportNameMapping(imports),
+		Wizard:      *wiz,
+		pkg:         pkg,
+		imports:     importMapping,
+		importNames: importNames,
 	}
 }
 func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
@@ -68,8 +75,12 @@ func (wiz *Wizard) Render(name string, data any) ([]byte, error) {
 
 type PkgWizard struct {
 	Wizard
-	pkg     *packages.Package
+	pkg *packages.Package
+	// A mapping between package paths to import names
 	imports map[string]string
+
+	// A set of all the imported names
+	importNames map[string]bool
 }
 
 func (wiz *PkgWizard) WithFunction(fdecl *ast.FuncDecl) *FuncWizard {
@@ -155,7 +166,16 @@ func (wiz *FuncWizard) GetVariable(obj types.Object) (name string) {
 	if obj.Name() == "_" {
 		return "_"
 	}
-	return wiz.variables[obj]
+	name, exists := wiz.variables[obj]
+	if exists {
+		return name
+	}
+	isPackageName := wiz.importNames[obj.Name()]
+	if isPackageName {
+		return obj.Name()
+	}
+
+	panic(fmt.Sprintf("No variable for %s", obj.Name()))
 }
 
 func (wiz *FuncWizard) StateIndices() []int {
