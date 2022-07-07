@@ -41,6 +41,56 @@ func PrintAllBooks(library Library) {
 	}
 }
 
+type StopIterationError struct{}
+
+func (s StopIterationError) Error() string {
+	return "StopIterationError"
+}
+
+const StopIteration = StopIterationError{}
+
+func ForEachBook(library Library, callback func(Book) error) error {
+	for _, room := range library.Rooms {
+		for _, shelf := range room.Shelves {
+			for _, book := range shelf.Books {
+				err := callback(book)
+				if err == StopIteration {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func FindBook(library Library, predicate func(Book) bool) (Book, found bool) {
+	var result Book
+	var found bool
+
+	ForEachBook(library, func(book Book) error {
+		if predicate(book) {
+			result = book
+			found = true
+			return StopIteration
+		}
+		return nil
+	})
+
+	return result, found
+}
+
+func GenFindBook(library Library, predicate func(Book) bool) (Book, found bool) {
+	it := IterBooks(library)
+	for it.Next() {
+		book := it.Value()
+		if predicate(book) {
+			return book, true
+		}
+	}
+	return Book{}, false
+}
+
 type LibraryBookIterator struct {
 	bookIndex  int
 	shelfIndex int
@@ -122,3 +172,9 @@ func main() {
 
 	GeneratorPrintAllBooks(library)
 }
+
+/*
+Filtering is a good example, as you might want to use it as a middle-layer
+and only get what you need when you need it.
+This means that you _have_ to have an iterator.
+*/
