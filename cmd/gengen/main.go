@@ -68,7 +68,7 @@ func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
 
 	// Ensure the return type is a gengen.Generator
 	namedType, isNamed := pkg.TypesInfo.Types[results.List[0].Type].Type.(*types.Named)
-	if !isNamed || namedType.Obj().Pkg().Path() != GeneratorType.PkgPath || namedType.Obj().Name() != GeneratorType.Name {
+	if !isNamed || namedType.Obj().Pkg() == nil || namedType.Obj().Pkg().Path() != GeneratorType.PkgPath || namedType.Obj().Name() != GeneratorType.Name {
 
 		return false
 	}

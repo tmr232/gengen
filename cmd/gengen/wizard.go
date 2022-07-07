@@ -248,6 +248,9 @@ func (wiz *FuncWizard) convertFunction() []byte {
 
 func (wiz *FuncWizard) getTypeName(typ types.Type) string {
 	if namedType, isNamedType := typ.(*types.Named); isNamedType {
+		if namedType.Obj().Pkg() == nil {
+			return namedType.Obj().Name()
+		}
 		if namedType.Obj().Pkg() == wiz.pkg.Types {
 			// The type was defined in the same package, so we don't need to name the package
 			// it was imported from.
@@ -324,6 +327,10 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 		If this is a def - define the var, get the possibly new name
 		If a use - get the name based on the uses object
 	*/
+	if node.Name == "nil" {
+		// nil behaves a bit odd, so we handle it here.
+		return node.String()
+	}
 	definition, exists := wiz.pkg.TypesInfo.Defs[node]
 	if exists {
 		return wiz.DefineVariable(definition)
@@ -419,6 +426,35 @@ func (wiz *FuncWizard) VisitBinaryExpr(node *ast.BinaryExpr) string {
 func (wiz *FuncWizard) VisitIncDecStmt(node *ast.IncDecStmt) string {
 	x := wiz.convertAst(node.X)
 	return fmt.Sprintf("%s%s", x, node.Tok)
+}
+func (wiz *FuncWizard) VisitDeclStmt(node *ast.DeclStmt) string {
+	switch decl := node.Decl.(type) {
+	case *ast.GenDecl:
+		for _, spec := range decl.Specs {
+			switch spec := spec.(type) {
+			case *ast.ImportSpec:
+				log.Fatal("There shouldn't be an import here!")
+			case *ast.TypeSpec:
+				log.Fatal("Neither should we have nested type defs")
+			case *ast.ValueSpec:
+				var assignments []string
+				for i, name := range spec.Names {
+					// First, we need to define the matching variable
+					realName := wiz.DefineVariable(wiz.pkg.TypesInfo.Defs[name])
+
+					// Then, if a value exists, we create an assignment
+					if spec.Values != nil {
+						realValue := wiz.convertAst(spec.Values[i])
+						assignments = append(assignments, fmt.Sprintf("%s = %s", realName, realValue))
+					}
+				}
+				return strings.Join(assignments, "\n")
+			}
+		}
+	case *ast.FuncDecl:
+		log.Fatal("Nested functions are currently unsupported.")
+	}
+	return ""
 }
 func (wiz *FuncWizard) VisitIfStmt(node *ast.IfStmt) string {
 	loopId := wiz.GetIfId()
