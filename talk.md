@@ -1,3 +1,22 @@
+## Checklist
+
+- [ ] I come from Python
+- [ ] This is my API workflow, where I introduce iterators
+- [ ] Iterators are complicated, generators are simpler
+- [ ] Generator semantics
+- [ ] Single function iterators & the Advance function
+- [ ] Implementing Generators - using iterators!
+- [ ] Goto, labels, the main switch
+- [ ] Blocks and the issues with goto
+- [ ] Flattening an `if`
+- [ ] Flattening `for`
+- [ ] Adaptors
+- Putting it all together
+- fake demo
+- Current state & links
+
+## Intro
+
 Hello!
 
 My name is Tamir, and I am here to talk to you about generators!
