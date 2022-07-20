@@ -371,3 +371,184 @@ So during the talk, I'll be mentioning the `Advance` function and the State-Bloc
 ---
 
 With that bit of prep-work behind us, it is time to start digging deep.
+
+
+
+---
+
+## Generator Syntax
+
+I just showed you a generator, and you could probably guess what it does.
+But before we start digging into the gritty details, we need to cover the basics.
+
+Essentially, a generator is a way to automatically create iterators with simplified syntax.
+
+```go
+func IterThings(client *ApiClient) gengen.Generator[Thing] {
+	var result Result
+	var err error
+	for {
+		result, err = client.GetThings(result.Next)
+		if err != nil {
+			return err
+		}
+		for _, thing := range result.Things {
+			gengen.Yield(thing)
+		}
+		if result.Next == nil {
+			break
+		}
+	}
+	return nil
+}
+```
+
+The key part is the call to `gengen.Yield` (or the `yield` keyword, in other languages).
+Unlike `return`, which ends the current function, `yield` yields a value, and _suspends execution_.
+This means that the next time we go through our generator, it'll start right after the `yield` call.
+
+Let's look at an example:
+
+
+First, we call our generator function.
+This creates a new generator and returns it, but does not run any of the generator code.
+
+```go
+iter := IterThings(client)
+```
+
+Then, we'll call `Next()` to advance our iterator
+
+```go
+if iter.Next() {
+    fmt.Println(iter.Value())
+}
+```
+
+At this point, we start running the generator code.
+We run from the top of the function, to the first call to `gengen.Yield()`.
+`Next()` will return `true` and `Value()` will return the value passed to `Yield()`.
+
+Then, if we call `Next()` again, the cool part happens.
+We'll start executing the generator function again.
+But this time, we'll start at the line right after the `Yield`.
+Here, unlike manual iterators, all the state management is done 
+automatically for us.
+The state of all variables is saved, and it is just as if we continue from the same spot.
+Then, when we finally reach `return nil`, `Next()` will return `false` and the
+iteration will end.
+
+**BAD IDEA**
+Maybe I can explain generators with channels?
+Yield is like writing into a channel.
+
+Working with generators is a bit like working with channels.
+
+But as you can see below, mapping the same concepts gets messy real quick,
+so we should probably avoid that.
+
+```go
+package sample
+
+func tryRead[T any](channel chan T) {
+	select {
+	    case <- channel:
+        default:
+    }
+	return
+}
+
+func Fib() {
+	next := make(chan bool)
+	var value int
+
+	a := 1
+	b := 1
+	gen := func() {
+		for {
+			next <- true
+			value = a
+			a, b = b, a+b
+		}
+    }
+	
+	Next := func() bool {
+		return <-next		
+    }
+	Value := func() int {
+		return value
+    }
+	go gen()
+	
+	return Next, Value
+}
+```
+
+## Single Function Iterators
+
+As we've seen so far - iterators are comprised of XXX parts:
+1. A struct holding the iterator state
+2. An optional constructor, to initialize that struct
+3. A `Next()` method to advance it 
+4. `Value()` and `Err()` methods, which are trivial getters.
+
+This is quite a lot to write every time we need a new iterator (and a lot to show on a slide).
+
+So before going forward, we're going to simplify things, and define iterators using a single
+function (or 2, if you count the closure)
+
+```go
+func Fibonacci() SingleFunctionIterator[int] {
+	a := 1
+	b := 1
+	return SingleFunctionIterator[int]{
+		Advance: func() (hasValue bool, value int, err error) {
+			value = a
+			a, b = b, a+b
+			return true, value, nil
+		},
+	}
+}
+```
+
+To do this, we unify all the state into a single function.
+Instead of `Next()`, we use `Advance()`.
+Advance advances the iterator state and returns the 3 values we discussed before:
+1. The result of `Next()`, telling us whether there's another value or not
+2. The current value
+3. The current error
+
+Additionally, since we're using a closure here, all variable accesses look
+like accessing local variables, simplifying things for us.
+
+The missing piece allowing this is `SingleFunctionIterator[T]`:
+
+```go
+type SingleFunctionIterator[T any] struct {
+	Advance func() (hasValue bool, value T, err error)
+	value   T
+	err     error
+}
+
+func (it *SingleFunctionIterator[T]) Next() bool {
+	hasValue, value, err := it.Advance()
+	it.value = value
+	it.err = err
+	return hasValue
+}
+
+func (it *SingleFunctionIterator[T]) Value() T {
+	return it.value
+}
+
+func (it *SingleFunctionIterator[T]) Err() error {
+	return it.err
+}
+```
+
+It's `Next()` function calls the `Advance()` function we provided,
+stores the `Value()` and `Err()` values, and returns the `Next()` value.
+
+This form of an iterator saves us screen-space, and also removes a lot of code.
+As we only have our iterator-constructor with it's `Advance()` function.
+No methods, no structs.
