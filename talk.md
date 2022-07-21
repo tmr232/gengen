@@ -571,3 +571,47 @@ stores the `Value()` and `Err()` values, and returns the `Next()` value.
 This form of an iterator saves us screen-space, and also removes a lot of code.
 As we only have our iterator-constructor with it's `Advance()` function.
 No methods, no structs.
+
+---
+
+## More notes about generators and syntax
+
+- A generator function returns a generator
+- The generator implements our iteration interface
+- Calling `Next()` on the generator runs the code in the generator function 
+- Generators hide a code transformation that converts the code we see into an iterator
+- We'll see the exact transformation in a bit
+- But first - we'll see the results
+- When we call `Next()`, we progress to the next `yield` or `return`
+- Use a simple example (without loops?) to explain `yield`, as visualization is easier.
+- Dave Beazley has a good talk with a nice intro to steal from at http://dabeaz.com/generators/Generators.pdf
+  starting at slide 19
+- A generator function does a couple of cool tricks. First I'll introduce them,
+  and then we'll see how to implement them.
+  - When we call a generator function, we get a generator back.
+  - But none of the code in the generator function was executed!
+  - It only starts running when we call `Next()` on the generator.
+  - Then, it runs until `Yield()` yield a value
+  - The next time we call `Next()`, it will start right after that `Yield()`
+  - When we reach `return`, the generator will finish executing.
+  - If we want to report an error, we'll use the `return` statement.
+
+With this we can go on to explaining the implementation!
+
+## Generator Impl Intro
+
+- We can go with the same sample we used for the syntax if it is simple enough (and it should be!)
+- We start with just the generator function code
+- Then we strip the function away
+- Put it inside an `Advance()` function
+- Replace `yield` and with the right `return` values for `Advance()`
+- Replace `return nil`
+- Add the labels and the state switch
+- Show that the state is outside the Advance function
+- Show how we handle scopes
+- Talk about control flow
+- Talk about adaptors
+- Quickly describe the solution for variables, and renaming
+- Putting it all together, showing what it looks like
+- "Demo"
+- Summary
