@@ -221,7 +221,7 @@ If we encounter an error, we report it and finish.
 Then, we check if the current index fits in the current result - if it does, set `value`.
 If we consumed the current result, we check if there's another one.
 If there isn't, we terminate.
-Once we get the new result, we just call `Next()` again to get the actual value.
+Once we get the new result, we call `Next()` again to get the actual value.
 
 And this is where our second, and more pressing issue is.
 Now, you may be far better programmers than I am.
