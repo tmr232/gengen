@@ -95,3 +95,16 @@ Current Timing Estimates
 [1 min] State
 [2 min] Code Generation
 [1 min] Demo & Clapping
+
+
+From Mat Ryer's talk (GopherCon EU 2019)
+- Maintainability
+- Glancability
+- Obvious Code
+- Clear to new Gophers or people new to the project
+- Self-similar code
+
+- Add disclaimer for code in the talk
+  - Simplified to fit into the slide
+  - Simple examples for time's sake
+- "End up with a ctor, because there is setup that needs to happen"

@@ -1,7 +1,23 @@
 - Choose proper code samples for all slides
 - Evaluate the usefulness of `Advance()` and relevant vocabulary
 - Start with explaining `goto` issues _before_ explaining control-flow
+- Guy suggests saying what generators are (a simple way to write iterators)
+  right at the state - before the workflow demo
+- Need to make it clear that we're generating code, and not wait for the end with it.
+- Guy had no idea that this is what we're actually doing.
+- We need to move the build-tag and go-generate part to the top, before code transformations.
+- That will allow us to explain _why_ we're doing code transformations and where they come in.
 
+## Why Code Transformations
+This generator syntax is nice and all, but this is not Go.
+We currently have no generator functions, and our `gengen.Yield` function is a no-op
+
+```go
+package WhoCares
+func Yield[T any](T) {}
+```
+
+To actually get our generator function to work, we need to generate real Go code from it.
 
 ## Explaining the code transformations
 
