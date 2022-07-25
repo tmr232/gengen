@@ -76,3 +76,22 @@
     Mention that the gengen tag is inversed for the generated code
 27:28 - "Demo" and clapping
 End of talk.
+
+
+Current Timing Estimates
+
+## Intro [12 min]
+[2 min] About me
+[1 min] My workflow
+[1 min] The need for iterators
+[4 min] Implementing Iterators (incl. SingleFunctionIterator)
+[2 min] Issues with Iterators
+[2 min] Generator expo
+
+## Generators [15 min]
+[2 min] Generator Semantics
+[3 min] Intro to goto
+[6 min] Control Flow
+[1 min] State
+[2 min] Code Generation
+[1 min] Demo & Clapping
