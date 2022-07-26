@@ -108,3 +108,93 @@ From Mat Ryer's talk (GopherCon EU 2019)
   - Simplified to fit into the slide
   - Simple examples for time's sake
 - "End up with a ctor, because there is setup that needs to happen"
+
+
+# New Flow After Guy's Feedback
+
+- Start with intro
+- Missing feature from Python - Generators
+- Describe what Generators are - a simple and straightforward way to write Iterators
+- Describe my workflow
+- Code sample with simple API, mention that it is simplified
+- Iterators are too complicated and hard to maintain
+  - Lost of code, many ways to do it, breaks the logic in non-obvious way
+  - No self-similarity
+- Show generator solution & explain generator syntax
+- From here on - how to get this code (generators) working TODAY
+- Explain that the solution is using Code Generation
+- Because the syntax I showed is not Go.
+- We'll use go-generate and build-tags
+- Allow us to transparently separate our Generator definitions from the actual, executed code
+- build tag, go-generate line
+- We have - what are generators, we do code generation
+- Show that our `Yield` is a no-op
+- So we'll discuss the Code Transformations required to make them work in Go
+- We're using Go tools for analysis & generation, which are awesome.
+- Start with the actual `return nil` because error reporting is easy and we want it
+    out of the way.
+- Start with a simple example and show `goto`
+- We need `goto` to return to the line after `Yield`
+- We need to mark that line - so we use labels - the easiest way
+- Goto's jump to labels, no need to mention other solutions
+- Issues with `goto`
+- Safety - no blocks, no var-defs
+- So we have 2 issues - variable defs, jumping into blocks
+- Var-defs - move them into our state-block. Make sure we mention it when discussing iterators!
+- All gotos are after the defs, all state is maintained!
+- Probably no time to discuss name conflicts
+- More complex - blocks!
+- Start with `if`
+- We cannot jump into it, so we can use `goto` to restructure the `if`
+- We can see the graph for the `if`, and use `goto` to reposition parts of it
+- Start by marking the parts with labels, adding `goto` to show the original flow
+- Then moving the code out of the blocks and add the `goto` to redirect
+- With `for` we need to show backlink, `break`, `continue`
+- condition for->show the differences
+- c-style - lucky to have vars out of the way already!
+- Show it as condition for, mention differences in `break` and `continue`
+- `range-for` - explain adaptors, transform to condition-for or **c-style**
+- We perform this exercise for the rest of the control flow structures in Go
+- We have generators, generation, limitations of goto, transformations, error reporting!!!
+- Show final example, generated code, results with go-test
+
+# Code Manipulates Data
+
+In essence, code is meant to manipulate data.
+So when working with new APIs, I want to know the data I'll be working with.
+Documentation and structures are nice, but I find that seeing concrete data
+makes it much easier for me to reason about it and know what I need to do.
+So when dealing with new APIs, my first order of business is querying for
+data and displaying it. Usually using `fmt.PrintLn`.
+
+# Workflow up to Iterators
+
+The first thing we do is query and print the data.
+Structures and documentation are nice but seeing the actual helps
+me understand it a whole-lot better.
+Once we have that, we want to start manipulating the data and write our business logic.
+When we do that - we need to make some code choices.
+3 options - one is to put the logic in our query function.
+Gets tricky as soon as we add filtering, pagination, etc.
+We don't want to duplicate it.
+Additionally, it puts 2 logically separate actions in the same function and makes it harder to
+reason about it.
+The second option - query first, manipulate later.
+We can query all the data, put it in a slice, and manipulate the slice.
+This works for small enough or cheap-enough-to-get data.
+When we're making network requests - we'd rather only get the data we want.
+The third option, and the one I prefer, is to use iterators.
+This allows us to only get the data we need, and iterate over it like a slice.
+This is where I show iteration code and explain the interface.
+The issue comes from implementing them.
+Generally 5 parts.
+
+# Iterators
+
+first - maintain state. Usually done using a struct or a closure.
+*Really messy here*
+Also need a ctor due to non-obvious initialization
+`Value` and `Err` methods as trivial getters
+`Next` which is the core of the iterator, and handles the actual iteration.
+
+Instead, we'll use a helper struct, and implement our iterators using closures.
