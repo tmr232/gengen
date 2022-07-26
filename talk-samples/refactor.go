@@ -47,7 +47,7 @@ func (s StopIterationError) Error() string {
 	return "StopIterationError"
 }
 
-const StopIteration = StopIterationError{}
+var StopIteration = StopIterationError{}
 
 func ForEachBook(library Library, callback func(Book) error) error {
 	for _, room := range library.Rooms {
@@ -64,32 +64,32 @@ func ForEachBook(library Library, callback func(Book) error) error {
 	return nil
 }
 
-func FindBook(library Library, predicate func(Book) bool) (Book, found bool) {
-	var result Book
-	var found bool
+//func FindBook(library Library, predicate func(Book) bool) (Book, found bool) {
+//	var result Book
+//	var found bool
+//
+//	ForEachBook(library, func(book Book) error {
+//		if predicate(book) {
+//			result = book
+//			found = true
+//			return StopIteration
+//		}
+//		return nil
+//	})
+//
+//	return result, found
+//}
 
-	ForEachBook(library, func(book Book) error {
-		if predicate(book) {
-			result = book
-			found = true
-			return StopIteration
-		}
-		return nil
-	})
-
-	return result, found
-}
-
-func GenFindBook(library Library, predicate func(Book) bool) (Book, found bool) {
-	it := IterBooks(library)
-	for it.Next() {
-		book := it.Value()
-		if predicate(book) {
-			return book, true
-		}
-	}
-	return Book{}, false
-}
+//func GenFindBook(library Library, predicate func(Book) bool) (Book, found bool) {
+//	it := IterBooks(library)
+//	for it.Next() {
+//		book := it.Value()
+//		if predicate(book) {
+//			return book, true
+//		}
+//	}
+//	return Book{}, false
+//}
 
 type LibraryBookIterator struct {
 	bookIndex  int
@@ -126,6 +126,64 @@ func (it *LibraryBookIterator) Next() bool {
 
 func (it *LibraryBookIterator) Value() Book {
 	return it.library.Rooms[it.roomIndex].Shelves[it.shelfIndex].Books[it.bookIndex]
+}
+
+type ClosureIterator[T any] struct {
+	Advance func(withValue func(value T) bool, withError func(err error) bool, exhausted func() bool) bool
+	value   T
+	err     error
+}
+
+func (it *ClosureIterator[T]) Value() T {
+	return it.value
+}
+
+func (it *ClosureIterator[T]) Err() error {
+	return it.err
+}
+
+func (it *ClosureIterator[T]) Next() bool {
+	withValue := func(value T) bool {
+		it.value = value
+		return true
+	}
+	withError := func(err error) bool {
+		it.err = err
+		return false
+	}
+	exhausted := func() bool { return false }
+	return it.Advance(withValue, withError, exhausted)
+}
+
+func TalkBookIterator(library Library) ClosureIterator[Book] {
+	bookIndex := -1
+	shelfIndex := 0
+	roomIndex := 0
+	return ClosureIterator[Book]{
+		Advance: func(withValue func(value Book) bool, withError func(err error) bool, exhausted func() bool) bool {
+			bookIndex++
+			for bookIndex >= len(library.Rooms[roomIndex].Shelves[shelfIndex].Books) {
+				bookIndex = 0
+				shelfIndex++
+				for shelfIndex >= len(library.Rooms[roomIndex].Shelves) {
+					shelfIndex = 0
+					roomIndex++
+					if roomIndex >= len(library.Rooms) {
+						return exhausted()
+					}
+				}
+			}
+
+			return withValue(library.Rooms[roomIndex].Shelves[shelfIndex].Books[bookIndex])
+		},
+	}
+}
+
+func TalkIteratorPrintAllBooks(library Library) {
+	it := TalkBookIterator(library)
+	for it.Next() {
+		fmt.Println(it.Value())
+	}
 }
 
 func IteratorPrintAllBooks(library Library) {
@@ -170,7 +228,7 @@ func main() {
 		},
 	}
 
-	GeneratorPrintAllBooks(library)
+	TalkIteratorPrintAllBooks(library)
 }
 
 /*
