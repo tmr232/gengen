@@ -82,6 +82,7 @@ Iterators allow us to loop over our data _as if_ it was in a slice,
 but only get the next item on demand, when we actually need it.
 
 ```go
+
 iterator := getIterator()
 for iterator.Next() {
 value := iterator.Value()
@@ -107,11 +108,19 @@ The problem with iterators, then, comes from implementing them.
 Generally, an iterator is made up of 5 parts.
 
 ```go
-type MyIterator[T any] struct{...}
-func NewIterator[T any]() *MyIterator[T]
-func (it* MyIterator) Value() T
-func (it* MyIterator) Err() error
-func (it* MyIterator) Next() bool
+package Example
+
+type MyIterator[T any] struct{}
+func NewIterator[T any]() *MyIterator[T] {
+	return new(MyIterator[T])
+}
+func (it* MyIterator[T]) Value() T
+func (it* MyIterator[T]) Err() error
+func (it* MyIterator[T]) Next() bool
+
+func init() {
+	NewIterator[int]()
+}
 ```
 
 A struct to maintain the iterator state;
@@ -438,7 +447,7 @@ This also serves a second purpose - by declaring all variables in the state-bloc
 their state across calls to `Next()`.
 
 **Need code sample!!!**
-
+   
 ---
 
 # Using Goto - Blocks

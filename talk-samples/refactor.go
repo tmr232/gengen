@@ -15,10 +15,6 @@ type Book struct {
 	Published int
 }
 
-func (b Book) String() string {
-	return fmt.Sprintf("\"%s\" / %s (%d)", b.Name, b.Author, b.Published)
-}
-
 type Shelf struct {
 	Books []Book
 }
@@ -29,6 +25,10 @@ type Room struct {
 
 type Library struct {
 	Rooms []Room
+}
+
+func (b Book) String() string {
+	return fmt.Sprintf("\"%s\" / %s (%d)", b.Name, b.Author, b.Published)
 }
 
 func PrintAllBooks(library Library) {
@@ -193,10 +193,13 @@ func IteratorPrintAllBooks(library Library) {
 	}
 }
 
-func GeneratorPrintAllBooks(library Library) {
+func PrintAllBooks(library Library) {
 	it := IterBooks(library)
 	for it.Next() {
 		fmt.Println(it.Value())
+	}
+	if it.Error() != nil {
+		panic(it.Error())
 	}
 }
 
@@ -236,3 +239,320 @@ Filtering is a good example, as you might want to use it as a middle-layer
 and only get what you need when you need it.
 This means that you _have_ to have an iterator.
 */
+
+func rangeIterator(stop int) ClosureIterator[int] {
+	current := 0
+
+	return ClosureIterator[int]{
+		Advance: func(withValue func(value int) bool, withError func(err error) bool, exhausted func() bool) bool {
+			if current < stop {
+				retval := current
+				current++
+				return withValue(retval)
+			}
+			return exhausted()
+		},
+	}
+}
+
+func Empty() gengen.Geneartor[int] {
+	return nil
+}
+
+func Empty() ClosureIterator[int] {
+	return ClosureIterator[int]{
+		Advance: func(...) bool {
+			return nil
+		},
+	}
+}
+
+func Empty() ClosureIterator[int] {
+	return ClosureIterator[int]{
+		Advance: func(...) bool {
+			return exhausted()
+		},
+	}
+}
+
+func Error() gengen.Geneartor[int] {
+	return MyError{}
+}
+
+func Error() ClosureIterator[int] {
+	return ClosureIterator[int]{
+		Advance: func(...) bool {
+			return withEror(MyError{})
+		},
+	}
+}
+
+func HelloWorld() gengen.Generator[string] {
+	gengen.Yield("Hello, World!")
+	return nil
+}
+
+func HelloWorld2() ClosureIterator[string] {
+	return ClosureIterator[string]{
+		Advance: func(...) bool {
+			gengen.Yield("Hello, World!")
+			return nil
+		},
+	}
+}
+
+func HelloWorld3() ClosureIterator[string] {
+	return ClosureIterator[string]{
+		Advance: func(...) bool {
+			// gengen.Yield("Hello, World!")
+			return withValue("Hello, World!")
+			return nil
+		},
+	}
+}
+
+func HelloWorld4() ClosureIterator[string] {
+	next := 0
+	return ClosureIterator[string]{
+		Advance: func(...) bool {
+			switch next {
+			case 0:
+				goto Label0
+			case 1:
+				goto Label1
+			}
+		Label0:
+			// gengen.Yield("Hello, World!")
+			next = 1
+			return withValue("Hello, World!")
+		Label1:
+			return nil
+		},
+	}
+}
+
+func HelloWorld5() ClosureIterator[string] {
+	next := 0
+	return ClosureIterator[string]{
+		Advance: func(...) bool {
+			switch next {
+			case 0:
+				goto Label0
+			case 1:
+				goto Label1
+			}
+		Label0:
+			// gengen.Yield("Hello, World!")
+			next = 1
+			return withValue("Hello, World!")
+		Label1:
+			return exhausted()
+		},
+	}
+}
+
+func Yield[T any](T) {}
+
+func GotoLimits(cond bool) {
+	goto skipDeclatation
+	msg := "Hello, World!"
+skipDeclaration:
+	// What is the value of `msg`?
+	fmt.Println(msg)
+
+	goto intoBlock
+	if cond {
+	intoBlock:
+		// Does the codition hold?
+		doSomething()
+	}
+}
+
+func Count(alpha bool) gengen.Generator[string] {
+	if alpha {
+		gengen.Yield("a")
+		gengen.Yield("b")
+		gengen.Yield("c")
+	} else {
+		gengen.Yield("1")
+		gengen.Yield("2")
+		gengen.Yield("3")
+	}
+	return nil
+}
+
+func Count2(alpha bool) gengen.Generator[string] {
+	if alpha {
+	thenLabel:
+		gengen.Yield("a")
+		gengen.Yield("b")
+		gengen.Yield("c")
+	} else {
+	elseLabel:
+		gengen.Yield("1")
+		gengen.Yield("2")
+		gengen.Yield("3")
+	}
+afterLabel:
+	return nil
+}
+
+func Count3(alpha bool) gengen.Generator[string] {
+	if alpha {
+	thenLabel:
+		gengen.Yield("a")
+		gengen.Yield("b")
+		gengen.Yield("c")
+		goto afterLabel
+	} else {
+	elseLabel:
+		gengen.Yield("1")
+		gengen.Yield("2")
+		gengen.Yield("3")
+		goto afterLabel
+	}
+afterLabel:
+}
+
+func Count4(alpha bool) gengen.Generator[string] {
+	if alpha {
+		goto thenLabel
+	} else {
+		goto elseLabel
+	}
+thenLabel:
+	gengen.Yield("a")
+	gengen.Yield("b")
+	gengen.Yield("c")
+	goto afterLabel
+elseLabel:
+	gengen.Yield("1")
+	gengen.Yield("2")
+	gengen.Yield("3")
+	goto afterLabel
+afterLabel:
+}
+
+func Forever() gengen.Generator[int] {
+	n := 0
+	for {
+		gengen.Yield(n)
+		n++
+	}
+
+	n := 0
+	for {
+	loopHead:
+		gengen.Yield(n)
+		n++
+	}
+afterLoop:
+
+	n := 0
+	for {
+	loopHead:
+		gengen.Yield(n)
+		n++
+		goto loopHead
+	}
+afterLoop:
+
+	n := 0
+loopHead:
+	gengen.Yield(n)
+	n++
+	goto loopHead
+afterLoop:
+}
+
+func While() gengen.Generator[int] {
+	n := 0
+	for n < 10 {
+		gengen.Yield(n)
+		n++
+	}
+
+	n := 0
+	for {
+		if n < 10 {
+			gengen.Yield(n)
+			n++
+		} else {
+			break
+		}
+	}
+
+	n := 0
+
+loopHead:
+	if n < 10 {
+		goto loopBody
+	} else {
+		goto afterLoop
+	}
+loopBody:
+	gengen.Yield(n)
+	n++
+afterLoop:
+}
+
+func CStyle() gengen.Generator[int] {
+
+	for n := 0; n < 10; n++ {
+		gengen.Yield(n)
+	}
+
+	n := 0
+	for ; ; n++ {
+		if n < 10 {
+			gengen.Yield(n)
+		}
+	}
+x:
+	n := 0
+	for n < 10 {
+		gengen.Yield(n)
+		// continue goes here
+		n++
+	}
+
+	n := 0
+	for {
+		if n < 10 {
+			gengen.Yield(n)
+			n++
+		} else {
+			break
+		}
+	}
+
+	n := 0
+
+loopHead:
+	if n < 10 {
+		goto loopBody
+	} else {
+		goto afterLoop
+	}
+loopBody:
+	gengen.Yield(n)
+loopIncrement:
+	n++
+afterLoop:
+}
+
+func SliceAdaptor(slice[]int) gengen.Generator[int] {
+	return nil
+}
+
+func ForRange(slice []int) gengen.Generator[int] {
+	for index, item := range slice {
+		gengen.Yield(item)
+	}
+
+	iter := SliceAdaptor(slice)
+	for iter.Next() {
+		index, item := iter.Value()
+		gengen.Yield(item)
+	}
+}
