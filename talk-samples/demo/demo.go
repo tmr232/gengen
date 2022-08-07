@@ -1,6 +1,6 @@
 //go:build gengen
 
-package demo
+package main
 
 import (
 	"fmt"

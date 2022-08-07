@@ -16,23 +16,29 @@ type Generator2[A, B any] interface {
 	Error() error
 }
 
-type GeneratorFunction[T any] struct {
-	Advance func() (hasValue bool, value T, err error)
+type ClosureIterator[T any] struct {
+	Advance func(withValue func(value T) bool, withError func(err error) bool, exhausted func() bool) bool
 	value   T
 	err     error
 }
 
-func (g *GeneratorFunction[T]) Next() bool {
-	hasValue, value, err := g.Advance()
-	g.value = value
-	g.err = err
-	return hasValue
+func (it *ClosureIterator[T]) Value() T {
+	return it.value
 }
 
-func (g *GeneratorFunction[T]) Value() T {
-	return g.value
+func (it *ClosureIterator[T]) Error() error {
+	return it.err
 }
 
-func (g *GeneratorFunction[T]) Error() error {
-	return g.err
+func (it *ClosureIterator[T]) Next() bool {
+	withValue := func(value T) bool {
+		it.value = value
+		return true
+	}
+	withError := func(err error) bool {
+		it.err = err
+		return false
+	}
+	exhausted := func() bool { return false }
+	return it.Advance(withValue, withError, exhausted)
 }

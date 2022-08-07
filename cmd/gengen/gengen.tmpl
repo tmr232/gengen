@@ -16,8 +16,8 @@
             {{.}}
         {{end}}
         __next := 0
-        return &gengen.GeneratorFunction[{{.ReturnType}}]{
-            Advance: func() (__hasValue bool, __value {{.ReturnType}}, __err error) {
+        return &gengen.ClosureIterator[{{.ReturnType}}]{
+            Advance: func(__withValue func(value {{.ReturnType}}) bool, __withError func(err error) bool, __exhausted func() bool) bool {
                 switch __next {
                 {{range .StateIndices}}
                 case {{.}}:
@@ -33,15 +33,16 @@
 {{end}}
 
 {{define "return"}}
-    __err = {{.ReturnValue}}
-    return
+    {{if eq .ReturnValue "nil"}}
+    return __exhausted()
+    {{else}}
+    return __withError({{.ReturnValue}}
+    {{end}}
 {{end}}
 
 {{define "yield"}}
-    __hasValue = true
-    __value = {{.YieldValue}}
     __next = {{.Next}}
-    return
+    return __withValue({{.YieldValue}})
 
 {{template "next" .Next}}:
 {{end}}
