@@ -5,25 +5,10 @@ import "github.com/tmr232/gengen"
 func ManualFibGen() gengen.Generator[int] {
 	a := 1
 	b := 1
-	return &gengen.GeneratorFunction[int]{
-		Advance: func() (__hasValue bool, __value int, __err error) {
-			__value = a
-			__hasValue = true
+	return gengen.Generator[int]{
+		Advance: func(withValue func(value int) bool, withError func(err error) bool, exhausted func() bool) bool {
 			a, b = b, a+b
-			return
-		},
-	}
-}
-
-func ManualFibGenNoInterface() gengen.GeneratorFunction[int] {
-	a := 1
-	b := 1
-	return gengen.GeneratorFunction[int]{
-		Advance: func() (__hasValue bool, __value int, __err error) {
-			__value = a
-			__hasValue = true
-			a, b = b, a+b
-			return
+			return withValue(a)
 		},
 	}
 }

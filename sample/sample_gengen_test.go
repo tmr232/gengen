@@ -252,14 +252,6 @@ func BenchmarkManualFibGen(b *testing.B) {
 		}
 	}
 }
-func BenchmarkManualFibGenNoInterface(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		fib := ManualFibGenNoInterface()
-		for k := 0; fib.Next() && k < 1000; k++ {
-			fib.Value()
-		}
-	}
-}
 
 func BenchmarkChannelFibonacci(b *testing.B) {
 	for i := 0; i < b.N; i++ {

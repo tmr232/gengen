@@ -36,7 +36,7 @@
     {{if eq .ReturnValue "nil"}}
     return __exhausted()
     {{else}}
-    return __withError({{.ReturnValue}}
+    return __withError({{.ReturnValue}})
     {{end}}
 {{end}}
 
