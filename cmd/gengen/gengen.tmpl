@@ -16,7 +16,7 @@
             {{.}}
         {{end}}
         __next := 0
-        return &gengen.ClosureIterator[{{.ReturnType}}]{
+        return gengen.Generator[{{.ReturnType}}]{
             Advance: func(__withValue func(value {{.ReturnType}}) bool, __withError func(err error) bool, __exhausted func() bool) bool {
                 switch __next {
                 {{range .StateIndices}}
