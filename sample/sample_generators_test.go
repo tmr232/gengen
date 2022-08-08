@@ -234,29 +234,3 @@ func TestSomeIntScan(t *testing.T) {
 		})
 	}
 }
-
-func BenchmarkFibonacci(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		fib := Fibonacci()
-		for k := 0; fib.Next() && k < 1000; k++ {
-			fib.Value()
-		}
-	}
-}
-
-func BenchmarkManualFibGen(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		fib := ManualFibGen()
-		for k := 0; fib.Next() && k < 1000; k++ {
-			fib.Value()
-		}
-	}
-}
-
-func BenchmarkChannelFibonacci(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		fib := ChannelFibonacci(1000)
-		for range fib {
-		}
-	}
-}

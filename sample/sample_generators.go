@@ -3,6 +3,7 @@
 package sample
 
 import (
+	"errors"
 	"github.com/tmr232/gengen"
 )
 
@@ -29,7 +30,7 @@ func Empty() gengen.Generator[string] {
 	gengen.Yield("")
 }
 func EmptyWithError() gengen.Generator[int] {
-	return SomeGenError{}
+	return errors.New("Generator Error!")
 	gengen.Yield(0)
 }
 
