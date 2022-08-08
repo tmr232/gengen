@@ -348,7 +348,6 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 		If a use - get the name based on the uses object
 	*/
 	if node.Name == "nil" {
-		// nil behaves a bit odd, so we handle it here.
 		return node.String()
 	}
 	definition, exists := wiz.pkg.TypesInfo.Defs[node]
@@ -359,7 +358,7 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 	if _, isBuiltin := usage.(*types.Builtin); isBuiltin {
 		return node.String()
 	}
-	if exists && usage.Pkg().Path() == wiz.pkg.PkgPath {
+	if exists && usage.Pkg() != nil && usage.Pkg().Path() == wiz.pkg.PkgPath {
 		return wiz.GetVariable(usage)
 	}
 	return node.String()
