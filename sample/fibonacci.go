@@ -5,12 +5,11 @@ import "github.com/tmr232/gengen"
 func ManualFibGen() gengen.Generator[int] {
 	a := 1
 	b := 1
-	return gengen.Generator[int]{
-		Advance: func(withValue func(value int) bool, withError func(err error) bool, exhausted func() bool) bool {
-			a, b = b, a+b
-			return withValue(a)
-		},
-	}
+	return gengen.MakeGenerator(func(withValue func(value int) bool, withError func(err error) bool, exhausted func() bool) bool {
+		a, b = b, a+b
+		return withValue(a)
+	},
+	)
 }
 
 func ChannelFibonacci(n int) chan int {
