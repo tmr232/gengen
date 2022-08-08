@@ -193,6 +193,25 @@ You can now use `go run .` to execute the code and get:
 9
 ```
 
+
+### Installation
+
+To use the `gengen` command, Go's tooling needs to know about it and fetch it.
+To do that, we add the following file to our module:
+
+**File:** `gengen.go`
+
+```go
+//go:build tools
+package main
+import (
+	_ "github.com/tmr232/gengen/cmd/gengen"
+)
+```
+
+Having the import will ensure `go mod tidy` fetches the `gengen` command, and the build
+tag will ensure this code is not built into our project.
+
 ## Known Issues
 
 Code-analysis & code-generation are both hard.
