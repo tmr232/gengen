@@ -2,6 +2,8 @@
 
 Gengen is a tool and a library for creating and using Python-style Generators in Go.
 
+Gengen is still a work in progress (see [Known Issues](#known-issues)).
+
 ## What Are Generators
 
 Generators are a simple and straightforward way to create Iterators.
@@ -190,3 +192,37 @@ You can now use `go run .` to execute the code and get:
 8
 9
 ```
+
+## Known Issues
+
+Code-analysis & code-generation are both hard.
+If you try to break this code - you'll definitely succeed.
+If you don't try to break this code - you'll probably break it regardless...
+
+There are probably a lot of issues I am unaware of.
+But there are also known ones.
+
+### Unsupported Syntax
+
+- `go`
+- `switch`
+- `select`
+- Nested functions
+- Anonymous types
+- Type assertions
+
+I plan to add support for all of these in the future.
+
+### Defer
+
+Go's `defer` will _not_ be supported.
+
+In a generator context, there is no obvious time to defer a call to:
+
+- On generation exhaustion - this will mean that the deferred call will only happen
+  if we exhaust the generator. If we don't exhaust it - we're likely to leak resources.
+- On calls to `Next()` - this is possible, doesn't make much sense as that can happen many times.
+
+For that reason, if you need to manage resources for your generator - please do so
+_outside_ the generator itself. Pass the initialized resource to the generator as an 
+argument, and close it outside the generator when it is no longer needed.
