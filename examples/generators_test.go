@@ -1,4 +1,4 @@
-package sample
+package examples
 
 import (
 	"github.com/tmr232/gengen"

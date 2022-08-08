@@ -1,6 +1,6 @@
 //go:build gengen
 
-package sample
+package examples
 
 import (
 	"errors"
