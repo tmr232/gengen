@@ -205,17 +205,30 @@ func main() {
 		log.Fatal("Failed to initialize wizard.")
 	}
 
+	log.Println("Generating Generators!")
+
+	visited := make(map[*ast.File]bool)
+
 	for _, pkg := range pkgs {
 		for _, file := range pkg.Syntax {
+			if visited[file] {
+				continue
+			}
+			visited[file] = true
+
 			if !isGeneratorSourceFile(file) {
 				// Only copy & modify files that are generator source files.
 				continue
 			}
 
+			sourcePath := pkg.Fset.Position(file.Pos()).Filename
+			genPath := strings.TrimSuffix(sourcePath, ".go") + "_gengen.go"
+
+			log.Printf("\t%s -> %s\n", sourcePath, genPath)
+
 			src := renderGeneratorFile(wiz, pkg, file)
 
-			filepath := strings.TrimSuffix(pkg.Fset.Position(file.Pos()).Filename, ".go") + "_gengen.go"
-			err = ioutil.WriteFile(filepath, src, 0644)
+			err = ioutil.WriteFile(genPath, src, 0644)
 			if err != nil {
 				log.Fatalf("writing output: %s", err)
 			}

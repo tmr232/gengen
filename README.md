@@ -202,6 +202,8 @@ If you don't try to break this code - you'll probably break it regardless...
 There are probably a lot of issues I am unaware of.
 But there are also known ones.
 
+Bug reports are very welcome.
+
 ### Unsupported Syntax
 
 - `go`
@@ -226,3 +228,9 @@ In a generator context, there is no obvious time to defer a call to:
 For that reason, if you need to manage resources for your generator - please do so
 _outside_ the generator itself. Pass the initialized resource to the generator as an 
 argument, and close it outside the generator when it is no longer needed.
+
+### Documentation
+
+While the user-facing API is reasonably documented, the implementation of the code-generation
+is, well, not.
+The code is also expected to change quite a bit as I improve the implementaion.

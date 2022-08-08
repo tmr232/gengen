@@ -509,7 +509,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		valueType := rangeType.Elem()
 		mapAdapterId := wiz.GetAdapterId()
 		adapterName := fmt.Sprintf("__mapAdapter%d", mapAdapterId)
-		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[%s, %s]", adapterName, keyType, wiz.getTypeName(valueType))
+		mapAdapterDefinition := fmt.Sprintf("var %s *gengen.MapAdapter[%s, %s]", adapterName, keyType, wiz.getTypeName(valueType))
 		wiz.AddStateLine(mapAdapterDefinition)
 		key := "_"
 		value := "_"
@@ -548,7 +548,7 @@ func (wiz *FuncWizard) VisitRangeStmt(node *ast.RangeStmt) string {
 		valueType := rangeType.(interface{ Elem() types.Type }).Elem()
 		mapAdapterId := wiz.GetAdapterId()
 		adapterName := fmt.Sprintf("__sliceAdapter%d", mapAdapterId)
-		mapAdapterDefinition := fmt.Sprintf("var %s gengen.Generator2[int, %s]", adapterName, wiz.getTypeName(valueType))
+		mapAdapterDefinition := fmt.Sprintf("var %s *gengen.SliceAdapter[%s]", adapterName, wiz.getTypeName(valueType))
 		wiz.AddStateLine(mapAdapterDefinition)
 		key := "_"
 		value := "_"

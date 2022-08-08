@@ -12,7 +12,7 @@ func Second[First, Second any](_ First, second Second) Second {
 	return second
 }
 
-func ToSlice[Index, Value any](gen Generator2[Index, Value]) (slice []Value) {
+func ToSlice[Index, Value any](gen Iterator2[Index, Value]) (slice []Value) {
 	for gen.Next() {
 		slice = append(slice, Second(gen.Value()))
 	}
@@ -20,7 +20,7 @@ func ToSlice[Index, Value any](gen Generator2[Index, Value]) (slice []Value) {
 	return
 }
 
-func ToMap[K comparable, V any](gen Generator2[K, V]) map[K]V {
+func ToMap[K comparable, V any](gen Iterator2[K, V]) map[K]V {
 	result := make(map[K]V)
 	for gen.Next() {
 		key, value := gen.Value()
