@@ -234,3 +234,144 @@ func TestSomeIntScan(t *testing.T) {
 		})
 	}
 }
+
+func TestTakeN(t *testing.T) {
+	type args struct {
+		n      int
+		source gengen.Generator[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{"take 0", args{0, Range(10)}, []int{}},
+		{"take 1", args{1, Range(10)}, []int{0}},
+		{"take 2", args{2, Range(10)}, []int{0, 1}},
+		{"take all", args{10, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"take more", args{20, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice(TakeN(tt.args.n, tt.args.source)); !((len(got) == 0 && len(tt.want) == 0) || reflect.DeepEqual(got, tt.want)) {
+				t.Errorf("TakeN() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDropN(t *testing.T) {
+	type args struct {
+		n      int
+		source gengen.Generator[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{"drop 0", args{0, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"drop 1", args{1, Range(10)}, []int{1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"drop 2", args{2, Range(10)}, []int{2, 3, 4, 5, 6, 7, 8, 9}},
+		{"drop all", args{10, Range(10)}, []int{}},
+		{"drop more", args{20, Range(10)}, []int{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice(DropN(tt.args.n, tt.args.source)); !((len(got) == 0 && len(tt.want) == 0) || reflect.DeepEqual(got, tt.want)) {
+				t.Errorf("DropN() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTakeWhile(t *testing.T) {
+	type args struct {
+		predicate func(int) bool
+		source    gengen.Generator[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{"Take none", args{func(int) bool { return false }, Range(10)}, []int{}},
+		{"Take all", args{func(int) bool { return true }, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"Take <5", args{func(n int) bool { return n < 5 }, Range(10)}, []int{0, 1, 2, 3, 4}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice(TakeWhile(tt.args.predicate, tt.args.source)); !((len(got) == 0 && len(tt.want) == 0) || reflect.DeepEqual(got, tt.want)) {
+				t.Errorf("TakeWhile() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDropWhile(t *testing.T) {
+	type args struct {
+		predicate func(int) bool
+		source    gengen.Generator[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{"Drop none", args{func(int) bool { return false }, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"Drop all", args{func(int) bool { return true }, Range(10)}, []int{}},
+		{"Drop <5", args{func(n int) bool { return n < 5 }, Range(10)}, []int{5, 6, 7, 8, 9}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice(DropWhile(tt.args.predicate, tt.args.source)); !((len(got) == 0 && len(tt.want) == 0) || reflect.DeepEqual(got, tt.want)) {
+				t.Errorf("DropWhile() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+func TestFilterIn(t *testing.T) {
+	type args struct {
+		predicate func(int) bool
+		source    gengen.Generator[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{"Filter none", args{func(int) bool { return false }, Range(10)}, []int{}},
+		{"Filter all", args{func(int) bool { return true }, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"Filter even", args{func(n int) bool { return n%2 == 0 }, Range(10)}, []int{0, 2, 4, 6, 8}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice(FilterIn(tt.args.predicate, tt.args.source)); !((len(got) == 0 && len(tt.want) == 0) || reflect.DeepEqual(got, tt.want)) {
+				t.Errorf("FilterIn() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterOut(t *testing.T) {
+	type args struct {
+		predicate func(int) bool
+		source    gengen.Generator[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{"Filter none", args{func(int) bool { return false }, Range(10)}, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{"Filter all", args{func(int) bool { return true }, Range(10)}, []int{}},
+		{"Filter even", args{func(n int) bool { return n%2 == 0 }, Range(10)}, []int{1, 3, 5, 7, 9}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ToSlice(FilterOut(tt.args.predicate, tt.args.source)); !((len(got) == 0 && len(tt.want) == 0) || reflect.DeepEqual(got, tt.want)) {
+				t.Errorf("FilterOut() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

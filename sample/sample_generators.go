@@ -94,3 +94,73 @@ func SomeIntScan(n int) gengen.Generator[[]int] {
 	}
 	return nil
 }
+
+func TakeN[T any](n int, source gengen.Generator[T]) gengen.Generator[T] {
+	for i := 0; i < n && source.Next(); i++ {
+		gengen.Yield(source.Value())
+	}
+	return source.Error()
+}
+
+func DropN[T any](n int, source gengen.Generator[T]) gengen.Generator[T] {
+	for i := 0; i < n; i++ {
+		if !source.Next() {
+			return source.Error()
+		}
+	}
+	for source.Next() {
+		gengen.Yield(source.Value())
+	}
+	return source.Error()
+}
+
+func TakeWhile[T any](predicate func(T) bool, source gengen.Generator[T]) gengen.Generator[T] {
+	for source.Next() {
+		value := source.Value()
+		if !predicate(value) {
+			return nil
+		}
+		gengen.Yield(value)
+	}
+	return source.Error()
+}
+
+func DropWhile[T any](predicate func(T) bool, source gengen.Generator[T]) gengen.Generator[T] {
+	found := false
+	for source.Next() {
+		if !predicate(source.Value()) {
+			found = true
+			break
+		}
+	}
+	if found {
+		gengen.Yield(source.Value())
+		for source.Next() {
+			gengen.Yield(source.Value())
+		}
+	}
+	return source.Error()
+
+}
+
+func FilterIn[T any](predicate func(T) bool, source gengen.Generator[T]) gengen.Generator[T] {
+	for source.Next() {
+		value := source.Value()
+		if !predicate(value) {
+			continue
+		}
+		gengen.Yield(value)
+	}
+	return source.Error()
+}
+
+func FilterOut[T any](predicate func(T) bool, source gengen.Generator[T]) gengen.Generator[T] {
+	for source.Next() {
+		value := source.Value()
+		if predicate(value) {
+			continue
+		}
+		gengen.Yield(value)
+	}
+	return source.Error()
+}
