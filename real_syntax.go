@@ -17,7 +17,7 @@ type Generator2[A, B any] interface {
 }
 
 type Generator[T any] struct {
-	Advance func(withValue func(value T) bool, withError func(err error) bool, exhausted func() bool) bool
+	advance func(withValue func(value T) bool, withError func(err error) bool, exhausted func() bool) bool
 	value   T
 	err     error
 }
@@ -40,5 +40,9 @@ func (it *Generator[T]) Next() bool {
 		return false
 	}
 	exhausted := func() bool { return false }
-	return it.Advance(withValue, withError, exhausted)
+	return it.advance(withValue, withError, exhausted)
+}
+
+func MakeGenerator[T any](advance func(withValue func(value T) bool, withError func(err error) bool, exhausted func() bool) bool) Generator[T] {
+	return Generator[T]{advance: advance}
 }
