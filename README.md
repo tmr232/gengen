@@ -67,10 +67,33 @@ func Range(stop int) gengen.Generator[int] {
 - When encountering `return someError`, `Next()` will return `false`, stopping the iteration
   and `Error()` will return `someError`. If no error occurred - return `nil` to stop iteration.
 
-## Creating Generators
+## Generating Generators (Tutorial)
 
 Since Generators are not a part of Go, but rather some pretend-Go syntax, we can't use them directly.
 Instead, gengen uses code generation to implement them for you in real-Go.
+
+You can follow along and write the code, or clone the demo from [gengen-demo][gengen-demo].
+
+### Setup
+
+To use the `gengen` command, Go's tooling needs to know about it and fetch it.
+To do that, we add the following file to our module:
+
+**File:** `tools.go`
+
+```go
+//go:build tools
+package main
+import (
+	_ "github.com/tmr232/gengen/cmd/gengen"
+)
+```
+
+Once you have this in place, run `go mod tidy`.
+Having the import will ensure `go mod tidy` fetches the `gengen` command,
+and the build tag will ensure this code is not built into our project.
+
+### Writing The Code
 
 The `Range` sample, in a real project, will look as follows:
 
@@ -115,7 +138,15 @@ It has 3 key parts, except the generator itself:
 3. It uses `go:generate` to run `github.com/tmr232/gengen/cmd/gengen` and generate the actual 
    real-Go generator implementation from the definition shown here.
 
-When running `go generate -tags gengen` we get the following file:
+### Generating & Running
+
+To generate the generator implementation, run the following command:
+
+```shell
+go generate -tags gengen
+```
+
+This will create the following file:
 
 **File:** `demo_gengen.go`
 ```go
@@ -174,7 +205,7 @@ func main() {
 
 Key changes are:
 
-1. We now use `!gengen` as a build-tag, to separate from the pretend-Go definitions, and avoid conflicts.
+1. We now have `!gengen` as a build-tag, to separate from the pretend-Go definitions, and avoid conflicts.
 2. The `go:generate` directive is gone.
 3. The `Range` function has been replaced with a real-Go implementation of the generator-definition we wrote.
 
@@ -192,25 +223,6 @@ You can now use `go run .` to execute the code and get:
 8
 9
 ```
-
-
-### Installation
-
-To use the `gengen` command, Go's tooling needs to know about it and fetch it.
-To do that, we add the following file to our module:
-
-**File:** `gengen.go`
-
-```go
-//go:build tools
-package main
-import (
-	_ "github.com/tmr232/gengen/cmd/gengen"
-)
-```
-
-Having the import will ensure `go mod tidy` fetches the `gengen` command, and the build
-tag will ensure this code is not built into our project.
 
 ## Known Issues
 
@@ -252,4 +264,6 @@ argument, and close it outside the generator when it is no longer needed.
 
 While the user-facing API is reasonably documented, the implementation of the code-generation
 is, well, not.
-The code is also expected to change quite a bit as I improve the implementaion.
+The code is also expected to change quite a bit as I improve the implementation.
+
+[gengen-demo]: https://github.com/tmr232/gengen-demo
