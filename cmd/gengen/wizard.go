@@ -315,14 +315,15 @@ func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
 			if len(node.Args) != 1 {
 				log.Fatal("Yield accepts a single argument.")
 			}
-			var yieldValue bytes.Buffer
-			format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
+			fmt.Println("Arg:", node.Args[0])
+			yieldValue := wiz.convertAst(node.Args[0])
+			fmt.Println("<-Arg:", node.Args[0])
 
 			yield, err := wiz.Render("yield", struct {
 				YieldValue string
 				Next       int
 			}{
-				YieldValue: yieldValue.String(),
+				YieldValue: yieldValue,
 				Next:       wiz.NextIndex(),
 			})
 			if err != nil {
@@ -352,15 +353,23 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 	}
 	definition, exists := wiz.pkg.TypesInfo.Defs[node]
 	if exists {
-		return wiz.DefineVariable(definition)
+		fmt.Println("exists", node)
+		name := wiz.DefineVariable(definition)
+		fmt.Println("as", name)
+		return name
 	}
+	fmt.Println("ident-node", node)
 	usage, exists := wiz.pkg.TypesInfo.Uses[node]
+	fmt.Println(usage, wiz.pkg.Fset.Position(usage.Pos()))
 	if _, isBuiltin := usage.(*types.Builtin); isBuiltin {
 		return node.String()
 	}
 	if exists && usage.Pkg() != nil && usage.Pkg().Path() == wiz.pkg.PkgPath {
-		return wiz.GetVariable(usage)
+		name := wiz.GetVariable(usage)
+		fmt.Println("Name", name)
+		return name
 	}
+	fmt.Println("node.string", node.String())
 	return node.String()
 }
 func (wiz *FuncWizard) VisitAssignStmt(node *ast.AssignStmt) string {
