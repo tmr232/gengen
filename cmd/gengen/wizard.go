@@ -640,6 +640,11 @@ func (wiz *FuncWizard) VisitArrayType(node *ast.ArrayType) string {
 	}
 	return arrType.String()
 }
+
+func (wiz *FuncWizard) VisitIndexExpr(node *ast.IndexExpr) string {
+	return wiz.convertAst(node.X) + "[" + wiz.convertAst(node.Index) + "]"
+}
+
 func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	if node == nil {
 		// This saves some work with conditionally-nil nodes.
