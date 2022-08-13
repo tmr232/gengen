@@ -1,0 +1,21 @@
+name: Tests
+on: [pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        go: ['1.18.5','1.19']
+        os: ['windows-latest','ubuntu-latest','macos-latest']
+    runs-on: ${{ matrix.os }}
+    name: Test Go ${{ matrix.go }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+      - run: |
+            go mod tidy
+            go generate -tags gengen ./...
+            go test ./...
+
