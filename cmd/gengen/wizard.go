@@ -358,6 +358,14 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 		return node.String()
 	}
 	if exists && usage.Pkg() != nil && usage.Pkg().Path() == wiz.pkg.PkgPath {
+		funcDef := wiz.pkg.TypesInfo.Defs[wiz.fdecl.Name]
+		if funcDef.Parent() == usage.Parent() {
+			// This is a hack for globals, since we don't currently handle them properly.
+			// We check if the name is defined in the same scope as the current function.
+			// If it is, we don't need to rename it.
+			// This is broken, and we need to do proper name handling, but it'll hold for now.
+			return node.Name
+		}
 		return wiz.GetVariable(usage)
 	}
 	return node.String()
@@ -633,6 +641,14 @@ func (wiz *FuncWizard) VisitArrayType(node *ast.ArrayType) string {
 
 func (wiz *FuncWizard) VisitIndexExpr(node *ast.IndexExpr) string {
 	return wiz.convertAst(node.X) + "[" + wiz.convertAst(node.Index) + "]"
+}
+
+func (wiz *FuncWizard) VisitGoStmt(node *ast.GoStmt) string {
+	return "go " + wiz.convertAst(node.Call)
+}
+
+func (wiz *FuncWizard) VisitChanType(node *ast.ChanType) string {
+	return "chan " + wiz.convertAst(node.Value)
 }
 
 func (wiz *FuncWizard) convertAst(node ast.Node) string {
