@@ -315,14 +315,13 @@ func (wiz *FuncWizard) VisitCallExpr(node *ast.CallExpr) string {
 			if len(node.Args) != 1 {
 				log.Fatal("Yield accepts a single argument.")
 			}
-			var yieldValue bytes.Buffer
-			format.Node(&yieldValue, wiz.pkg.Fset, node.Args[0])
+			yieldValue := wiz.convertAst(node.Args[0])
 
 			yield, err := wiz.Render("yield", struct {
 				YieldValue string
 				Next       int
 			}{
-				YieldValue: yieldValue.String(),
+				YieldValue: yieldValue,
 				Next:       wiz.NextIndex(),
 			})
 			if err != nil {
@@ -631,6 +630,11 @@ func (wiz *FuncWizard) VisitArrayType(node *ast.ArrayType) string {
 	}
 	return arrType.String()
 }
+
+func (wiz *FuncWizard) VisitIndexExpr(node *ast.IndexExpr) string {
+	return wiz.convertAst(node.X) + "[" + wiz.convertAst(node.Index) + "]"
+}
+
 func (wiz *FuncWizard) convertAst(node ast.Node) string {
 	if node == nil {
 		// This saves some work with conditionally-nil nodes.
