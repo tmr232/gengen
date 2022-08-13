@@ -237,12 +237,12 @@ Bug reports are very welcome.
 
 ### Unsupported Syntax
 
-- `go`
-- `switch`
-- `select`
-- Nested functions
-- Anonymous types
-- Type assertions
+-[x] ~~`go`~~
+-[ ] `switch`
+-[ ] `select`
+-[ ] Nested functions
+-[ ] Anonymous types
+-[ ] Type assertions
 
 I plan to add support for all of these in the future.
 
