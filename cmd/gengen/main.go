@@ -59,6 +59,14 @@ func usesYield(pkg *packages.Package, node ast.Node) bool {
 	return usesYield
 }
 
+func isGeneratorType(typ types.Type) bool {
+	namedType, isNamed := typ.(*types.Named)
+	return isNamed &&
+		namedType.Obj().Pkg() != nil &&
+		namedType.Obj().Pkg().Path() == GeneratorType.PkgPath &&
+		namedType.Obj().Name() == GeneratorType.Name
+}
+
 // IsGenerator checks if a given ast.FuncDecl is a generator definition.
 func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
 	results := fdecl.Type.Results
@@ -67,9 +75,7 @@ func IsGenerator(pkg *packages.Package, fdecl *ast.FuncDecl) (result bool) {
 	}
 
 	// Ensure the return type is a gengen.Generator
-	namedType, isNamed := pkg.TypesInfo.Types[results.List[0].Type].Type.(*types.Named)
-	if !isNamed || namedType.Obj().Pkg() == nil || namedType.Obj().Pkg().Path() != GeneratorType.PkgPath || namedType.Obj().Name() != GeneratorType.Name {
-
+	if !isGeneratorType(pkg.TypesInfo.Types[results.List[0].Type].Type) {
 		return false
 	}
 
