@@ -153,7 +153,12 @@ func (wiz *FuncWizard) DefineVariable(obj types.Object) (name string) {
 		return "_"
 	}
 	namer := Namer{name: obj.Name()}
-	for wiz.names[namer.Name()] {
+	// Get the generator's parent scope. Since we only support package-level functions,
+	// this is always the package scope.
+	globalScope := wiz.pkg.TypesInfo.Scopes[wiz.fdecl.Type].Parent()
+	// Find a name that is unique inside the function & does not conflict with names
+	// outside the function, as we can't rename those.
+	for wiz.names[namer.Name()] || globalScope.Lookup(namer.Name()) != nil {
 		namer.Next()
 	}
 	wiz.names[namer.Name()] = true
@@ -349,24 +354,23 @@ func (wiz *FuncWizard) VisitIdent(node *ast.Ident) string {
 	if node.Name == "nil" {
 		return node.String()
 	}
-	definition, exists := wiz.pkg.TypesInfo.Defs[node]
-	if exists {
+	definition, isDefinition := wiz.pkg.TypesInfo.Defs[node]
+	if isDefinition {
 		return wiz.DefineVariable(definition)
 	}
-	usage, exists := wiz.pkg.TypesInfo.Uses[node]
-	if _, isBuiltin := usage.(*types.Builtin); isBuiltin {
+
+	definition, isUsage := wiz.pkg.TypesInfo.Uses[node]
+	if _, isBuiltin := definition.(*types.Builtin); isBuiltin {
 		return node.String()
 	}
-	if exists && usage.Pkg() != nil && usage.Pkg().Path() == wiz.pkg.PkgPath {
-		funcDef := wiz.pkg.TypesInfo.Defs[wiz.fdecl.Name]
-		if funcDef.Parent() == usage.Parent() {
-			// This is a hack for globals, since we don't currently handle them properly.
-			// We check if the name is defined in the same scope as the current function.
-			// If it is, we don't need to rename it.
-			// This is broken, and we need to do proper name handling, but it'll hold for now.
+	if isUsage && definition.Pkg() != nil && definition.Pkg().Path() == wiz.pkg.PkgPath {
+		if !wiz.pkg.TypesInfo.Scopes[wiz.fdecl.Type].Contains(definition.Pos()) {
+			// If the name is defined outside the generator-function, return it as is.
+			// We don't rename anything outside the generator-function.
 			return node.Name
 		}
-		return wiz.GetVariable(usage)
+		// Get the (possibly renamed) variable name for the given definition.
+		return wiz.GetVariable(definition)
 	}
 	return node.String()
 }
