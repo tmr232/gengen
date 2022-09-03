@@ -174,7 +174,75 @@ This is why I want Generators so badly.
 
 With generators, the code looks as follows:
 
-**Show sample here**
+```python
+def iter_books(library: Library) -> typing.Generator[Book, None, None]:
+   for room in library.rooms:
+      for shelf in room.shelves:
+         for book in shelf.books:
+            yield book
+```
+
+Oh, no, wait, this is Python...
+We're here because we don't yet have this in Go, and we want to add it.
+To do that, we need to make two decisions first:
+1. How do we implement it?
+2. What syntax do we want?
+
+To make those choices, we need to establish some goals.
+You see, implementing generators is not enough, we want them to be usable.
+So our goals are:
+1. The result should be usable by all gophers, regardless of OS
+2. Existing tooling (IDEs, CLI tools) should work with the new code
+
+And now, let's tackle our questions. 
+For implementation, we have 3 options:
+1. Do some runtime magic using a library, to convert functions into generators
+
+   This might work, but will require a different implementation for every OS and processor. So that's a no.
+
+2. Modify the Go compiler
+
+   Again, this can work. But it will limit the possible usage of generators. 
+   If we modify the compiler, it'll only be used when changing the compiler is applicable - so mostly small
+   test projects. If we want it to be usable (at least for experimentation) in large, existing codebases,
+   we cannot change the compiler.
+
+3. Use code-generation
+   
+   This will do the trick. If we use code-generation, we don't depend on OS, architecture, or compiler.
+   You can use the tool to generate code, then build in on whatever platform and whatever tools you want.
+
+With that in mind, the next step is to choose the syntax.
+The obvious option would be to copy Python and add a `yield` keyword.
+Then, when we generate code, we replace it with whatever needs to go there, and we're done.
+But there's an issue with that.
+While _our_ tool will recognize the `yield` keyword, no other Go tool will.
+Your editor will complain and fail to highlight your code.
+Your linters will yell about the unknown identifier.
+Even `go fmt` will fail miserably.
+All this will lead to a very unpleasant coding experience.
+To avoid this, we'll instead use a function call.
+As far as code-generation works, there is no difference.
+But all the Go tooling will keep working as expected.
+
+So now, in (pretend) Go, our code will look like this:
+
+```go
+func IterBooks(library Library) gengen.Generator[Book] {
+	for _, room := range library.Rooms {
+		for _, shelf := range room.Shelves {
+			for _, book := range shelf.Books {
+				gengen.Yield(book)
+			}
+		}
+	}
+	return nil
+}
+
+```
+
+You can see that we need `reutrn nil` the end here as a result, as we need to return _something_.
+
 
 Now compare it with the original printing loop.
 
@@ -195,14 +263,11 @@ We use `return err` to report errors.
 
 # Generating Generators
 
-Now, as nice as that generator syntax is, we still have one problem - it isn't Go.
+Now, as nice as that generator syntax is, we still have one problem - it still isn't Go.
 
 We can write this code, but we cannot run it.
 
-To circumvent this issue, we're going to use code generation.
-We'll take our generators, written in pretend-Go, and automatically generate real-Go implementations.
-
-After all, the talk _is_ called "Generating Generators"
+We need to take our pretend-Go syntax, and generate real-Go code.
 
 To generate our implementation code, we'll use some of Go's fantastic tooling for code-analysis and code-generation.
 
